@@ -1,0 +1,7 @@
+{
+  "deno.enable": true,
+  "editor.tabSize": 2,
+  "[python]": {
+    "editor.tabSize": 4
+  }
+}

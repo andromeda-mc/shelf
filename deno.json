@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "dev": "deno run --watch main.ts"
+  },
+  "imports": {
+    "@bronti/argon2": "jsr:@bronti/argon2@^1.0.3",
+    "@std/assert": "jsr:@std/assert@^1.0.19",
+    "@std/datetime": "jsr:@std/datetime@^0.225.7",
+    "@std/fs": "jsr:@std/fs@^1.0.23",
+    "@std/path": "jsr:@std/path@^1.1.4",
+    "@std/uuid": "jsr:@std/uuid@^1.1.1"
+  }
+}
