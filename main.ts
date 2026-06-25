@@ -1,11 +1,9 @@
 import { command } from "./lib/server/decorators.ts";
 import { log, Message, MessageData, Server } from "./lib/server/wsServer.ts";
-import {
-  API_VERSION,
-  DatabaseManagement as DatabaseManager,
-} from "./lib/dbManagement.ts";
+import { API_VERSION, DatabaseManagement } from "./lib/dbManagement.ts";
 import { QueueManager } from "./lib/queueManager.ts";
 import { JavaFinder } from "./lib/javas.ts";
+import { ServerManager } from "./lib/mcServerManager.ts";
 
 const publicCommands = ["version", "auth"];
 
@@ -13,6 +11,12 @@ class MainServer extends Server {
   /** key represents connUUID, value represents the UUID of an user */
   userMap = new Map<string, string | undefined>();
   authedUsers = new Set<WebSocket>();
+  private dbManager;
+
+  constructor(dbManager: DatabaseManagement) {
+    super();
+    this.dbManager = dbManager;
+  }
 
   messagePreprocess(message: Message): boolean | undefined {
     // Authed check
@@ -46,12 +50,12 @@ class MainServer extends Server {
       return message.response({ data: "exception", msg: "invalid: msg" });
     }
 
-    const user = dbManager.findUserByUsername(username);
+    const user = this.dbManager.findUserByUsername(username);
     if (!user) {
       return message.response({ data: "exception", msg: "auth: unknown user" });
     }
 
-    const success = dbManager.validateLoginHash(password, user.uuid);
+    const success = this.dbManager.validateLoginHash(password, user.uuid);
     if (!success) {
       return message.response({ data: "exception", msg: "auth: failed" });
     }
@@ -62,24 +66,29 @@ class MainServer extends Server {
   }
 }
 
-log("StartUp", "Initialising MainServer...");
-export const server = new MainServer();
+if (import.meta.main) {
+  log("StartUp", "Initialising DatabaseManager...");
+  const dbManager = new DatabaseManagement();
 
-log("StartUp", "Initialising DatabaseManager...");
-export const dbManager = new DatabaseManager();
+  log("StartUp", "Initialising MainServer...");
+  const server = new MainServer(dbManager);
 
-log("StartUp", "Initialising QueueManager...");
-export const queueManager = new QueueManager(
-  (task) => {
-    server.messageAll({ data: "queue_new_task", task });
-  },
-  (notification) => {
-    server.messageAll({ data: "queue_new_notification", notification });
-  },
-);
+  log("StartUp", "Initialising QueueManager...");
+  const queueManager = new QueueManager(
+    (task) => {
+      server.messageAll({ data: "queue_new_task", task });
+    },
+    (notification) => {
+      server.messageAll({ data: "queue_new_notification", notification });
+    },
+  );
 
-log("StartUp", "Initialising JavaFinder...");
-export const javas = new JavaFinder();
+  log("StartUp", "Initialising JavaFinder...");
+  const javas = new JavaFinder(dbManager);
 
-log("StartUp", "Starting MainServer...");
-server.serve();
+  log("StartUp", "Initialising ServerManager...");
+  const serverManager = new ServerManager(dbManager, javas);
+
+  log("StartUp", "Starting MainServer...");
+  server.serve();
+}

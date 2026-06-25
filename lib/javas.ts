@@ -1,6 +1,6 @@
 import { existsSync } from "@std/fs";
 import { join } from "@std/path";
-import { dbManager } from "../main.ts";
+import type { DatabaseManagement } from "./dbManagement.ts";
 
 const versionPattern = /version "([^"]*)"/;
 const whichJava = new Deno.Command("sh", {
@@ -30,15 +30,22 @@ function getJavaVersion(bin: string) {
 export class JavaFinder {
   private _allJavas: JavaResults = {};
   private _preferedJavas: Record<string, string> = {};
+  private _latestJava: string = "";
+  private dbManager;
+
   get allJavas() {
     return this._allJavas;
   }
   get preferedJavas() {
     return this._preferedJavas;
   }
+  get latestJava() {
+    return this._latestJava;
+  }
 
-  constructor() {
+  constructor(dbManager: DatabaseManagement) {
     this.rescanJavas();
+    this.dbManager = dbManager;
   }
 
   private findJavaVersions(paths: string[]) {
@@ -119,8 +126,11 @@ export class JavaFinder {
 
   rescanJavas() {
     this._allJavas = this.findJavaVersions(
-      defaultPaths.concat(dbManager.globalDB.additionalJavaPaths),
+      defaultPaths.concat(this.dbManager.globalDB.additionalJavaPaths),
     );
     this._preferedJavas = this.sortJavaVersions(this._allJavas);
+
+    const values = Object.values(this._preferedJavas);
+    this._latestJava = values[values.length - 1];
   }
 }

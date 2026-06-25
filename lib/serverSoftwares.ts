@@ -1,4 +1,4 @@
-type MaybePromise<T> = T | Promise<T>;
+import type { MaybePromise } from "./utils/type.ts";
 
 interface MultiMCVersion {
   releaseTime: string;
@@ -17,16 +17,16 @@ interface MultiMCMetadata {
 
 interface Loader {
   mcVersions: string[];
-  // loaderVersions?: Record<string, string[]>;
   indepdendantLoaderVersions?: string[];
   recommended: Record<string, string>;
 
   hasLoaderVersions: boolean;
   wantsToBeInstalled: boolean;
+  installArgs?: string[];
 
   produceDownloadUrl(
     mcVersion: string,
-    loaderVersion: string,
+    loaderVersion?: string,
   ): MaybePromise<string>;
   getLoaderVersionsForMC(mcVersion: string): MaybePromise<string[]>;
 }
@@ -42,10 +42,12 @@ class MultiMCSoftwareData implements Loader {
 
   hasLoaderVersions = true;
   wantsToBeInstalled = true;
+  installArgs: string[];
 
-  constructor(multiUid: string, downloadUrl: string) {
+  constructor(multiUid: string, downloadUrl: string, installArgs: string[]) {
     this.uid = multiUid;
     this.downloadUrl = downloadUrl;
+    this.installArgs = installArgs;
 
     fetch("https://meta.multimc.org/v1/" + this.uid).then((resp) =>
       resp.json().then((json) => {
@@ -180,13 +182,16 @@ class FabricSoftwareData implements Loader {
 
   hasLoaderVersions = true;
   wantsToBeInstalled: boolean;
+  installArgs: string[] | undefined;
 
   constructor(
     metaUrl: string,
     downloadUrl: string,
     wantsToBeInstalled: boolean,
+    installArgs?: string[] | undefined,
   ) {
     this.wantsToBeInstalled = wantsToBeInstalled;
+    this.installArgs = installArgs;
     this.downloadUrl = downloadUrl;
 
     fetch(metaUrl).then((resp) =>
@@ -284,25 +289,42 @@ class PaperSoftwareData implements Loader {
   }
 }
 
-export const loaders = {
-  Vanilla: new VanillaSoftwareData(),
+export type ServerSoftwares =
+  | "Vanilla"
+  | "Forge"
+  | "NeoForge"
+  | "Quilt"
+  | "Fabric"
+  | "Paper";
+
+export const loaders: Record<ServerSoftwares, Loader> = {
+  // Installer
   Forge: new MultiMCSoftwareData(
     "net.minecraftforge",
     "https://maven.minecraftforge.net/net/minecraftforge/forge/$mc-$ld/forge-$mc-$ld-installer.jar",
+    ["--installServer", "%install%"],
   ),
   NeoForge: new MultiMCSoftwareData(
     "net.neoforged",
     "https://maven.neoforged.net/releases/net/neoforged/neoforge/$ld/neoforge-$ld-installer.jar",
-  ),
-  LiteLoader: new MultiMCSoftwareData(
-    "com.mumfrey.liteloader",
-    "http://jenkins.liteloader.com/job/LiteLoaderInstaller%20$mc/lastSuccessfulBuild/artifact/build/libs/liteloader-installer-$mc-00-SNAPSHOT.jar",
+    ["--install-server", "%install%"],
   ),
   Quilt: new FabricSoftwareData(
     "https://meta.quiltmc.org/v3/versions",
     "https://quiltmc.org/api/v1/download-latest-installer/java-universal",
     false,
+    [
+      "install",
+      "server",
+      "%mc_version%",
+      "%loader_version%",
+      "--install-dir=%install%",
+      "--download-server"
+    ],
   ),
+
+  // Not-Installer
+  Vanilla: new VanillaSoftwareData(),
   Fabric: new FabricSoftwareData(
     "https://meta.fabricmc.net/v2/versions",
     "https://meta.fabricmc.net/v2/versions/loader/$mc/$ld/$in/server/jar",
@@ -310,5 +332,3 @@ export const loaders = {
   ),
   Paper: new PaperSoftwareData(),
 };
-
-export type ServerSoftwares = keyof typeof loaders;
