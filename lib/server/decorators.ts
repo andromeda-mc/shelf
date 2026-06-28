@@ -1,9 +1,11 @@
+import { Message } from "./wsServer.ts";
+
 const commandRegistry = new Map<DecoratorMetadataObject, Map<string, string>>();
 
 export function command(name: string) {
   return function (
-    _target: Function,
-    context: ClassMethodDecoratorContext<any>
+    _target: (message: Message) => void,
+    context: ClassMethodDecoratorContext<any>,
   ) {
     context.addInitializer(function () {
       const ctor = this.constructor;

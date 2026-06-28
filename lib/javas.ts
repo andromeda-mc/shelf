@@ -44,8 +44,8 @@ export class JavaFinder {
   }
 
   constructor(dbManager: DatabaseManagement) {
-    this.rescanJavas();
     this.dbManager = dbManager;
+    this.rescanJavas();
   }
 
   private findJavaVersions(paths: string[]) {

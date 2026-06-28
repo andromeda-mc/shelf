@@ -4,7 +4,7 @@ import { JavaFinder } from "./javas.ts";
 import { loaders, ServerSoftwares } from "./serverSoftwares.ts";
 import { existsSync } from "@std/fs";
 
-const installerTempPath = "/tmp/installer.jar";
+const installerTempPath = "/tmp/andromeda-stall2-installer.jar";
 
 export interface ServerSettings {
   name: string; // user generated
@@ -82,11 +82,17 @@ export class ServerManager {
         const run_path = join(generatedInfo.instancePath, "run.sh");
 
         if (info.software === "Quilt") {
-          launchScript = "@user_jvm_args.txt -jar quilt-server-launch.jar";
+          launchScript = "-jar quilt-server-launch.jar";
         } else if (existsSync(run_path)) {
-          launchScript = Deno.readTextFileSync(run_path).replace("java", "");
+          launchScript = Deno.readTextFileSync(run_path)
+            .split("\n")
+            .find((line) => line.startsWith("java"))!
+            .replace("java", "")
+            .replace("@user_jvm_args.txt", "");
           Deno.removeSync(run_path);
         }
+
+        Deno.removeSync(installerTempPath);
       } else {
         Deno.writeFileSync(
           join(generatedInfo.instancePath, "server.jar"),
@@ -94,14 +100,17 @@ export class ServerManager {
         );
       }
 
+      // Hint: Add args like -Xmx2G between the java path and the launchScript
       if (!launchScript) {
-        launchScript = "@user_jvm_args.txt -jar server.jar";
+        launchScript = "-jar server.jar";
       }
 
       generatedInfo.settings.launch_options = launchScript
         .replace('"$@"', "")
         .trim()
         .split(" ");
+
+      generatedInfo.settings.launch_options.push("nogui");
 
       this.dbManager.syncGlobalDB();
     } catch (e: unknown) {

@@ -3,6 +3,7 @@ import { generate as generateUUID } from "@std/uuid/v7";
 
 interface QueueItem<ReturnType> {
   title: string;
+  type: string;
   subtitle?: string;
   description?: string;
 
@@ -22,11 +23,13 @@ type StubQueueItem = Omit<Omit<QueueItem<any>, "startDate">, "itemUUID">;
 interface QueueNotification {
   title: string;
   subtitle?: string;
+  description?: string;
 
   isException: boolean;
   date: Date;
   itemUUID: string;
 }
+
 type StubQueueNotification = Omit<Omit<QueueNotification, "date">, "itemUUID">;
 
 export class QueueManager {
@@ -36,25 +39,19 @@ export class QueueManager {
     return this._notifications;
   }
 
-  readonly onQueueAdded;
-  readonly onNotificationAdded;
-
-  constructor(
-    onQueueAdded: (item: QueueItem<any>) => void,
-    onNotificationAdded: (item: QueueNotification) => void,
-  ) {
-    this.onQueueAdded = onQueueAdded;
-    this.onNotificationAdded = onNotificationAdded;
-  }
+  onQueueAdded: undefined | ((item: QueueItem<any>) => void);
+  onNotificationAdded: undefined | ((item: QueueNotification) => void);
 
   scheduleTask(stubTask: StubQueueItem) {
     const task = stubTask as QueueItem<any>;
     task.startDate = new Date();
     task.itemUUID = generateUUID();
 
-    const defaultFinishSub =
-      `Started: ${task.startDate.toLocaleTimeString()}; ` + task.subtitle
-        ? "Original description: " + task.subtitle
+    // TODO: Implement that finished tasks will get removed
+
+    const defaultFinishDesc =
+      `Started: ${task.startDate.toLocaleTimeString()}; ` + task.description
+        ? "Original description: " + task.description
         : "<task had no description>";
 
     // Handle onComplete
@@ -62,7 +59,8 @@ export class QueueManager {
       if (task.notifyOnFinish) {
         this.addNotification({
           title: `Task "${task.title}" has completed`,
-          subtitle: defaultFinishSub,
+          subtitle: task.subtitle,
+          description: defaultFinishDesc,
           isException: false,
         });
       }
@@ -75,9 +73,10 @@ export class QueueManager {
     // Handle exceptions
     task.promise.catch((error: unknown) => {
       this.addNotification({
-        title:
+        title: `"${task.type}" task failed`,
+        subtitle:
           task.customErrorTitle ?? `${error} occured in task "${task.title}"`,
-        subtitle: defaultFinishSub,
+        description: defaultFinishDesc,
         isException: true,
       });
 
@@ -87,7 +86,7 @@ export class QueueManager {
     });
 
     this.entries.push(task);
-    this.onQueueAdded(task);
+    this.onQueueAdded?.(task);
   }
 
   addNotification(stubNotifaction: StubQueueNotification) {
@@ -96,7 +95,7 @@ export class QueueManager {
     notification.itemUUID = generateUUID();
 
     this._notifications.push(notification);
-    this.onNotificationAdded(notification);
+    this.onNotificationAdded?.(notification);
   }
 
   removeNotification(uuid: string) {

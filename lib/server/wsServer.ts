@@ -9,14 +9,17 @@ export interface Message {
   content: MessageData;
   connUUID: string;
 
-  response: (msg: MessageData) => true;
-  responseWithException: (exception: string) => false;
+  respond: (msg: MessageData) => true;
+  respondWithException: (
+    exception: string,
+    additionalData?: Omit<MessageData, "data">,
+  ) => false;
 }
 
-export interface MessageData {
-  data: string;
-  [key: string]: any;
-}
+// Sometimes you got to hate TypeScript
+// This is an object with {data: string; [key: string]: any}
+// but for typescript only {data: string} comes out
+export type MessageData = any;
 
 export function log(module: string, message: string) {
   message = message.replaceAll(/[\n\r]/gm, "");
@@ -52,11 +55,15 @@ export abstract class Server {
       },
       (req, conInfo) => {
         if (req.headers.get("upgrade") != "websocket") {
-          return new Response(null, { status: 501 });
+          return new Response(null, { status: 426 });
         }
 
         const { socket, response } = Deno.upgradeWebSocket(req);
-        const { hostname } = conInfo.remoteAddr;
+        let hostname = "dummy";
+        if (Object.keys(conInfo).length !== 0) {
+          hostname = conInfo.remoteAddr.hostname;
+        }
+
         const connUUID = generateUUID();
 
         socket.addEventListener("open", () => {
@@ -96,11 +103,15 @@ export abstract class Server {
       }
 
       const send = this.send;
-      const error = (exception: string) => {
+      const error: Message["respondWithException"] = (
+        exception,
+        additionalData?,
+      ) => {
         send(instance, {
           data: "exception",
           responseTo: command,
           msg: exception,
+          ...additionalData,
         });
         return false as false;
       };
@@ -110,15 +121,15 @@ export abstract class Server {
         command,
         content: msg,
         connUUID,
-        response(msg) {
+        respond(msg) {
           send(instance, msg);
           return true;
         },
-        responseWithException: error,
+        respondWithException: error,
       };
 
       const preprocessResult = this.messagePreprocess(messageData);
-      if (preprocessResult !== false) {
+      if (preprocessResult === false) {
         return log("WS", `Preprocess failed for command '${command}'`);
       }
 

@@ -15,13 +15,20 @@ export enum PermissionLevel {
   User,
   Admin,
 }
-const defaultPermissions: Record<Permissions, boolean> = {
-  "create-server": false,
-};
 
 export enum Permissions {
   CreateServer = "create-server",
+  StartServer = "start-server",
+  StopServer = "stop-server",
+  KillServer = "kill-server",
 }
+
+const defaultPermissions: Record<Permissions, boolean> = {
+  "create-server": false,
+  "start-server": false,
+  "stop-server": false,
+  "kill-server": false,
+};
 
 interface UserData {
   uuid: string;
@@ -83,6 +90,14 @@ export class DatabaseManagement {
     return Object.values(this.globalDB.users).find((v) => v.name === username);
   }
 
+  hasUserPermission(uuid: string, permission: Permissions) {
+    const user = this.globalDB.users[uuid];
+
+    if (user.permissionLevel === PermissionLevel.Visitor) return false;
+    if (user.permissionLevel === PermissionLevel.Admin) return true;
+    return user.permissions[permission];
+  }
+
   syncGlobalDB() {
     Deno.writeTextFileSync(globalDBPath, JSON.stringify(this.globalDB));
   }
@@ -103,7 +118,7 @@ export class DatabaseManagement {
     const uuid = generateUUID();
     const instancePath = join(instancesPath, uuid);
 
-    Deno.mkdirSync(instancePath);
+    Deno.mkdirSync(instancePath, { recursive: true });
 
     const settings: ServerSettings = {
       name,
@@ -126,6 +141,10 @@ export class DatabaseManagement {
   }
 
   deleteServer(uuid: string) {
+    if (!(uuid in this.globalDB.servers)) return false;
+    const instancePath = join(instancesPath, uuid);
+
+    Deno.removeSync(instancePath, { recursive: true });
     return delete this.globalDB.servers[uuid];
   }
 }

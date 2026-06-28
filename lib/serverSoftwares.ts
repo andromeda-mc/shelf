@@ -147,7 +147,7 @@ class VanillaSoftwareData implements Loader {
     const packageMetadata = await packageResponse.json();
 
     if (!packageMetadata.downloads.server) throw Error("No download url found");
-    return packageMetadata.downloads.server;
+    return packageMetadata.downloads.server.url;
   }
 
   getLoaderVersionsForMC(): string[] {
