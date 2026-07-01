@@ -196,6 +196,9 @@ if (import.meta.main) {
   queueManager.onQueueAdded = (task) => {
     server.messageAll({ data: "queue_new_task", task });
   };
+  queueManager.onQueueRemoved = (taskUUID) => {
+    server.messageAll({ data: "queue_remove_task", taskUUID });
+  };
   queueManager.onNotificationAdded = (notification) => {
     server.messageAll({ data: "queue_new_notification", notification });
   };

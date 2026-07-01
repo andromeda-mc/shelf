@@ -40,14 +40,18 @@ export class QueueManager {
   }
 
   onQueueAdded: undefined | ((item: QueueItem<any>) => void);
+  onQueueRemoved: undefined | ((item: string) => void);
   onNotificationAdded: undefined | ((item: QueueNotification) => void);
 
   scheduleTask(stubTask: StubQueueItem) {
+    function deleteQueue(queue: QueueManager) {
+      queue.onQueueRemoved?.(task.itemUUID);
+      queue.entries.splice(queue.entries.indexOf(task), 1);
+    }
+
     const task = stubTask as QueueItem<any>;
     task.startDate = new Date();
     task.itemUUID = generateUUID();
-
-    // TODO: Implement that finished tasks will get removed
 
     const defaultFinishDesc =
       `Started: ${task.startDate.toLocaleTimeString()}; ` + task.description
@@ -68,6 +72,7 @@ export class QueueManager {
       if (task.onComplete) {
         task.onComplete(value);
       }
+      deleteQueue(this);
     });
 
     // Handle exceptions
@@ -83,6 +88,7 @@ export class QueueManager {
       if (task.onFailure) {
         task.onFailure();
       }
+      deleteQueue(this);
     });
 
     this.entries.push(task);
