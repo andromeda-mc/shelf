@@ -3,6 +3,7 @@ import type { DatabaseManagement } from "./dbManagement.ts";
 import { JavaFinder } from "./javas.ts";
 import { loaders, ServerSoftwares } from "./serverSoftwares.ts";
 import { existsSync } from "@std/fs";
+import { ProcessMonitor } from "./processMonitor.ts";
 
 const installerTempPath = "/tmp/andromeda-stall2-installer.jar";
 
@@ -15,11 +16,12 @@ export interface ServerSettings {
   software_version?: string;
   mc_version: string;
 
-  launch_options: string[];
+  launchOptions: string[];
   autostart: boolean;
   autorestart: boolean;
-  max_memory: number;
+  maxMemory: number;
   icon: string; // Either specified icon library or path to user uploaded image
+  creationDate: string; // ISO
 }
 
 export interface ServerCreationInfo {
@@ -29,13 +31,27 @@ export interface ServerCreationInfo {
   mc_version: string;
 }
 
+export enum ServerStates {
+  Stopped = "stopped",
+  Starting = "starting",
+  Running = "running",
+  Stopping = "stopping",
+}
+
 export class ServerManager {
   private dbManager;
   private javaFinder;
 
+  states = new Map<string, ServerStates>();
+  processes = new Map<string, ProcessMonitor>();
+
   constructor(dbManager: DatabaseManagement, javaFinder: JavaFinder) {
     this.dbManager = dbManager;
     this.javaFinder = javaFinder;
+
+    for (const server of Object.values(this.dbManager.servers)) {
+      this.states.set(server.uuid, ServerStates.Stopped);
+    }
   }
 
   async createServer(info: ServerCreationInfo) {
@@ -72,6 +88,7 @@ export class ServerManager {
 
         const installer = new Deno.Command(this.javaFinder.latestJava, {
           args,
+          cwd: "/tmp",
         }).spawn();
 
         const result = await installer.status;
@@ -105,19 +122,74 @@ export class ServerManager {
         launchScript = "-jar server.jar";
       }
 
-      generatedInfo.settings.launch_options = launchScript
+      generatedInfo.settings.launchOptions = launchScript
         .replace('"$@"', "")
         .trim()
         .split(" ");
 
-      generatedInfo.settings.launch_options.push("nogui");
+      // Accept the EULA. A disclaimer has to be shown to the user before creation
+      Deno.writeTextFileSync(
+        join(generatedInfo.instancePath, "eula.txt"),
+        "eula=true",
+      );
 
-      this.dbManager.syncGlobalDB();
+      generatedInfo.settings.launchOptions.push("nogui");
+      this.states.set(generatedInfo.uuid, ServerStates.Stopped);
+
+      this.dbManager.sync();
     } catch (e: unknown) {
       this.dbManager.deleteServer(generatedInfo.uuid);
-      this.dbManager.syncGlobalDB();
+      this.dbManager.sync();
 
       throw e;
     }
+  }
+
+  async startServer(uuid: string) {
+    if (!this.states.has(uuid)) {
+      throw new Error("Server doesn't exist");
+    }
+
+    if (this.states.get(uuid) !== ServerStates.Stopped) {
+      throw new Error("Server is already running");
+    }
+
+    const serverMetadata = this.dbManager.getServer(uuid);
+    const javaBin = await this.javaFinder.getJavaRuntimeForVersion(
+      serverMetadata.mc_version,
+    );
+
+    const args: string[] = [
+      "-Xms512M",
+      `-Xmx${serverMetadata.maxMemory}M`,
+      ...serverMetadata.launchOptions,
+    ];
+
+    const watcher = new ProcessMonitor(
+      javaBin,
+      args,
+      this.dbManager.getInstancePath(uuid),
+    );
+
+    // Test: Dump output to console
+    const encoder = new TextEncoder();
+    watcher.addListener((output) => {
+      Deno.stdout.write(encoder.encode(output));
+    });
+
+    this.states.set(uuid, ServerStates.Starting);
+    this.processes.set(uuid, watcher);
+  }
+
+  stopServer(uuid: string) {
+    if (!this.states.has(uuid)) {
+      throw new Error("Server doesn't exist");
+    }
+
+    // if (this.states.get(uuid) !== ServerStates.Running) {
+    //   throw new Error("Server is not running");
+    // }
+    const watcher = this.processes.get(uuid)!;
+    return watcher.terminate();
   }
 }

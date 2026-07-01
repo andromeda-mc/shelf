@@ -1,20 +1,32 @@
+import { log } from "./server/wsServer.ts";
+
 type Listener = (output: string) => void;
 
-export class ConsoleWatcher {
+export class ProcessMonitor {
   private listeners = new Set<Listener>();
   private encoder = new TextEncoder();
   private stdin;
   history = "";
   process;
 
-  constructor(bin: string, args?: string[], cwd?: string) {
-    this.process = new Deno.Command(bin, {
+  constructor(bin: string, javaArgs?: string[], cwd?: string) {
+    const args = ["-qec", bin + " " + javaArgs?.join(" ")];
+
+    this.process = new Deno.Command("script", {
       args,
       cwd,
       stdin: "piped",
       stdout: "piped",
       stderr: "piped",
+      env: {
+        TERM: "xterm-256color",
+      },
     }).spawn();
+
+    log(
+      "ProcessMonitor",
+      `Starting process ${this.process.pid}: "script ${args?.join(" ")}"`,
+    );
 
     const createHandler = () =>
       new WritableStream({
@@ -31,7 +43,7 @@ export class ConsoleWatcher {
     this.stdin = this.process.stdin.getWriter();
 
     this.process.status.then(() => {
-      this.write("*** process stopped ***");
+      this.handleNewOutput("*** process stopped ***");
     });
   }
 
@@ -41,6 +53,17 @@ export class ConsoleWatcher {
     for (const listener of this.listeners.values()) {
       listener(chunk);
     }
+  }
+
+  private killSignal(signal: Deno.Signal | number) {
+    const result = new Deno.Command("pgrep", {
+      args: ["-P", this.process.pid.toString()],
+    }).outputSync();
+
+    const stdout = new TextDecoder().decode(result.stdout);
+    const processes = stdout.split("\n").map((n) => Number(n));
+
+    Deno.kill(processes[0], signal);
   }
 
   addListener(listener: Listener) {
@@ -56,11 +79,12 @@ export class ConsoleWatcher {
   }
 
   terminate() {
-    this.process.kill("SIGINT");
+    this.handleNewOutput("*** stop requested ***");
+    this.killSignal("SIGINT");
   }
 
   kill() {
-    this.write("*** kill requested ***");
-    this.process.kill("SIGKILL");
+    this.handleNewOutput("*** kill requested ***");
+    this.killSignal("SIGKILL");
   }
 }

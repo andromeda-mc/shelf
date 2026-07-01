@@ -102,6 +102,25 @@ interface VanillaVersion {
   releaseTime: string;
 }
 
+interface VanillaVersionDownload {
+  sha1: string;
+  size: number;
+  url: string;
+}
+
+// NOTE: Slimmed down to what is essential to us
+interface VanillaVersionMetadata {
+  downloads: {
+    client: VanillaVersionDownload;
+    server?: VanillaVersionDownload;
+    windows_server?: VanillaVersionDownload;
+  };
+  javaVersion: {
+    component: string;
+    majorVersion: number;
+  };
+}
+
 interface VanillaManifest {
   latest: { release: string; snapshot: string };
   versions: VanillaVersion[];
@@ -138,16 +157,30 @@ class VanillaSoftwareData implements Loader {
     this.recommended[this.versionManifest.latest.snapshot] = "-";
   }
 
-  async produceDownloadUrl(mcVersion: string): Promise<string> {
+  async getVersionMetadata(mcVersion: string): Promise<VanillaVersionMetadata> {
     if (!this.versionManifest) throw Error("No metadata available");
 
     const packageResponse = await fetch(
       this.versionManifest.versions.find((v) => v.id === mcVersion)!.url,
+      { cache: "force-cache" },
     );
-    const packageMetadata = await packageResponse.json();
 
-    if (!packageMetadata.downloads.server) throw Error("No download url found");
-    return packageMetadata.downloads.server.url;
+    return await packageResponse.json();
+  }
+
+  async produceDownloadUrl(mcVersion: string): Promise<string> {
+    const versionMetadata = await this.getVersionMetadata(mcVersion);
+    if (!versionMetadata.downloads.server) throw Error("No download url found");
+
+    return versionMetadata.downloads.server.url;
+  }
+
+  async getJavaVersion(mcVersion: string) {
+    const versionMetadata = await this.getVersionMetadata(mcVersion);
+    if (!versionMetadata.javaVersion.majorVersion)
+      throw Error("No java version recommended");
+
+    return versionMetadata.javaVersion.majorVersion;
   }
 
   getLoaderVersionsForMC(): string[] {
@@ -297,6 +330,8 @@ export type ServerSoftwares =
   | "Fabric"
   | "Paper";
 
+export const Vanilla = new VanillaSoftwareData();
+
 export const loaders: Record<ServerSoftwares, Loader> = {
   // Installer
   Forge: new MultiMCSoftwareData(
@@ -319,12 +354,12 @@ export const loaders: Record<ServerSoftwares, Loader> = {
       "%mc_version%",
       "%loader_version%",
       "--install-dir=%install%",
-      "--download-server"
+      "--download-server",
     ],
   ),
 
   // Not-Installer
-  Vanilla: new VanillaSoftwareData(),
+  Vanilla,
   Fabric: new FabricSoftwareData(
     "https://meta.fabricmc.net/v2/versions",
     "https://meta.fabricmc.net/v2/versions/loader/$mc/$ld/$in/server/jar",

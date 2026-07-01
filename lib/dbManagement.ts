@@ -63,7 +63,7 @@ export class DatabaseManagement {
       const adminUUID = this.createUser("admin", hash("change-me"));
       this.globalDB.users[adminUUID].permissionLevel = PermissionLevel.Admin;
 
-      this.syncGlobalDB();
+      this.sync();
     } else {
       const content = Deno.readTextFileSync(globalDBPath);
       this.globalDB = JSON.parse(content);
@@ -98,7 +98,7 @@ export class DatabaseManagement {
     return user.permissions[permission];
   }
 
-  syncGlobalDB() {
+  sync() {
     Deno.writeTextFileSync(globalDBPath, JSON.stringify(this.globalDB));
   }
 
@@ -129,11 +129,12 @@ export class DatabaseManagement {
       software_version,
       mc_version,
 
-      launch_options: [],
+      launchOptions: [],
       autostart: false,
       autorestart: false,
-      max_memory: 2048,
+      maxMemory: 2048,
       icon: "grass",
+      creationDate: new Date().toISOString(),
     };
     this.globalDB.servers[uuid] = settings;
 
@@ -146,5 +147,17 @@ export class DatabaseManagement {
 
     Deno.removeSync(instancePath, { recursive: true });
     return delete this.globalDB.servers[uuid];
+  }
+
+  get servers() {
+    return this.globalDB.servers;
+  }
+
+  getServer(uuid: string) {
+    return this.globalDB.servers[uuid];
+  }
+
+  getInstancePath(uuid: string) {
+    return join(instancesPath, uuid);
   }
 }

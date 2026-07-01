@@ -1,8 +1,8 @@
 import { assertEquals } from "@std/assert";
-import { ConsoleWatcher } from "../lib/processMonitor.ts";
+import { ProcessMonitor } from "../lib/processMonitor.ts";
 
 Deno.test(async function testOutputCapturing() {
-  const watcher = new ConsoleWatcher("cat");
+  const watcher = new ProcessMonitor("cat");
   let timeoutId;
 
   try {

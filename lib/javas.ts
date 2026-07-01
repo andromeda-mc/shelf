@@ -1,6 +1,7 @@
 import { existsSync } from "@std/fs";
 import { join } from "@std/path";
 import type { DatabaseManagement } from "./dbManagement.ts";
+import { Vanilla } from "./serverSoftwares.ts";
 
 const versionPattern = /version "([^"]*)"/;
 const whichJava = new Deno.Command("sh", {
@@ -9,10 +10,11 @@ const whichJava = new Deno.Command("sh", {
 
 const defaultPaths = ["/nix/store", "/usr/lib/jvm", "/usr/java"];
 const keywords = ["jre", "jdk", "temurin"];
+const keywords_blacklist = ["minimal"];
 
 const java_subdirs = ["bin/java", "jre/bin/java", "jdk/bin/java"];
 
-type JavaResults = Record<string, { version: string; path: string }[]>;
+type JavaResults = Record<number, { version: string; path: string }[]>;
 
 function getJavaVersion(bin: string) {
   const command = new Deno.Command(bin, { args: ["-version"] });
@@ -29,7 +31,7 @@ function getJavaVersion(bin: string) {
 
 export class JavaFinder {
   private _allJavas: JavaResults = {};
-  private _preferedJavas: Record<string, string> = {};
+  private _preferedJavas: Record<number, string> = {};
   private _latestJava: string = "";
   private dbManager;
 
@@ -59,7 +61,7 @@ export class JavaFinder {
       if (!version) return;
 
       const data = { version, path };
-      const majorVersion = version.split(".", 1)[0];
+      const majorVersion = Number(version.split(".", 1)[0]);
       if (foundVersions[majorVersion]) {
         foundVersions[majorVersion].push(data);
       } else {
@@ -94,6 +96,7 @@ export class JavaFinder {
         }
 
         if (!keywords.some((kw) => name.includes(kw))) continue;
+        if (keywords_blacklist.some((kw) => name.includes(kw))) continue;
 
         // Step 2: Version recognition
         for (const candidate of java_subdirs) {
@@ -131,6 +134,12 @@ export class JavaFinder {
     this._preferedJavas = this.sortJavaVersions(this._allJavas);
 
     const values = Object.values(this._preferedJavas);
-    this._latestJava = values[values.length - 1];
+    this._latestJava = values.at(-1)!;
+  }
+
+  async getJavaRuntimeForVersion(mcVersion: string) {
+    const majorJavaVersion = await Vanilla.getJavaVersion(mcVersion);
+
+    return this._preferedJavas[majorJavaVersion];
   }
 }

@@ -9,6 +9,27 @@ import { QueueManager } from "./lib/queueManager.ts";
 import { JavaFinder } from "./lib/javas.ts";
 import { ServerCreationInfo, ServerManager } from "./lib/mcServerManager.ts";
 import { loaders } from "./lib/serverSoftwares.ts";
+import * as v from "@valibot/valibot";
+import { promissify } from "./lib/utils/promises.ts";
+
+const AuthSchema = v.object({
+  username: v.string(),
+  password: v.string(),
+});
+
+const CreateServerSchema = v.object({
+  name: v.string(),
+  software: v.pipe(
+    v.string(),
+    v.check((item) => item in loaders),
+  ),
+  mc_version: v.string(),
+  software_version: v.undefinedable(v.string()),
+});
+
+const SimpleServerActionSchema = v.object({
+  uuid: v.pipe(v.string(), v.uuid()),
+});
 
 const publicCommands = ["version", "auth"];
 
@@ -58,17 +79,20 @@ class MainServer extends Server {
 
   @command("auth")
   handleAuth(message: Message) {
-    const { username, password } = message.content;
-    if (typeof username !== "string" || typeof password !== "string") {
-      return message.respondWithException("invalid: msg");
+    const result = v.safeParse(AuthSchema, message.content);
+    if (!result.success) {
+      return message.respondWithException("validation: " + result.issues);
     }
 
-    const user = this.dbManager.findUserByUsername(username);
+    const user = this.dbManager.findUserByUsername(result.output.username);
     if (!user) {
       return message.respondWithException("auth: unknown user");
     }
 
-    const success = this.dbManager.validateLoginHash(password, user.uuid);
+    const success = this.dbManager.validateLoginHash(
+      result.output.password,
+      user.uuid,
+    );
     if (!success) {
       return message.respondWithException("auth: failed");
     }
@@ -85,17 +109,12 @@ class MainServer extends Server {
       return message.respondWithException("auth: no permission");
     }
 
-    const info: ServerCreationInfo = message.content;
-
-    if (
-      typeof info.name !== "string" ||
-      !(info.software in loaders) ||
-      typeof info.mc_version !== "string" ||
-      (info.software_version !== undefined && typeof info.software_version !== "string")
-    ) {
-      return message.respondWithException("invalid: msg");
+    const result = v.safeParse(CreateServerSchema, message.content);
+    if (!result.success) {
+      return message.respondWithException("validation: " + result.issues);
     }
 
+    const info = result.output as ServerCreationInfo;
     const promise = this.serverManager.createServer(info);
 
     this.queueManager.scheduleTask({
@@ -104,6 +123,56 @@ class MainServer extends Server {
       description: `${info.software} ${info.software_version} for ${info.mc_version}`,
       promise,
       notifyOnFinish: true,
+    });
+  }
+
+  @command("start-server")
+  startServer(message: Message) {
+    const userUUID = this.userMap.get(message.connUUID)!;
+    if (!this.dbManager.hasUserPermission(userUUID, Permissions.StartServer)) {
+      return message.respondWithException("auth: no permission");
+    }
+
+    const result = v.safeParse(SimpleServerActionSchema, message.content);
+    if (!result.success) {
+      return message.respondWithException("validation: " + result.issues);
+    }
+
+    const { uuid } = result.output;
+    const info = this.dbManager.getServer(uuid);
+    const promise = this.serverManager.startServer(uuid);
+
+    this.queueManager.scheduleTask({
+      title: "Starting server " + info.name,
+      type: "Server starting",
+      promise,
+      notifyOnFinish: false,
+    });
+  }
+
+  @command("stop-server")
+  stopServer(message: Message) {
+    const userUUID = this.userMap.get(message.connUUID)!;
+    if (!this.dbManager.hasUserPermission(userUUID, Permissions.StopServer)) {
+      return message.respondWithException("auth: no permission");
+    }
+
+    const result = v.safeParse(SimpleServerActionSchema, message.content);
+    if (!result.success) {
+      return message.respondWithException("validation: " + result.issues);
+    }
+
+    const { uuid } = result.output;
+    const info = this.dbManager.getServer(uuid);
+    const promise = promissify(() => {
+      this.serverManager.stopServer(uuid);
+    });
+
+    this.queueManager.scheduleTask({
+      title: "Stopping server " + info.name,
+      type: "Server stopping",
+      promise,
+      notifyOnFinish: false,
     });
   }
 }
