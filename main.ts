@@ -35,8 +35,7 @@ const publicCommands = ["version", "auth"];
 
 class MainServer extends Server {
   /** key represents connUUID, value represents the UUID of an user */
-  userMap = new Map<string, string | undefined>();
-  authedUsers = new Set<WebSocket>();
+  userMap = new Map<WebSocket, string | undefined>();
   private dbManager;
   private queueManager;
   private serverManager;
@@ -54,20 +53,19 @@ class MainServer extends Server {
 
   messagePreprocess(message: Message): boolean | undefined {
     // Authed check
-    const userUUID = this.userMap.get(message.connUUID);
+    const userUUID = this.userMap.get(message.instance);
     if (!publicCommands.includes(message.command) && !userUUID) {
       return message.respondWithException("auth: not authed");
     }
     return;
   }
 
-  onClose(instance: WebSocket, connUUID: string): void {
-    this.userMap.delete(connUUID);
-    this.authedUsers.delete(instance);
+  onClose(instance: WebSocket): void {
+    this.userMap.delete(instance);
   }
 
   messageAll(msg: MessageData) {
-    for (const instance of this.authedUsers) {
+    for (const instance of this.userMap.keys()) {
       this.send(instance, msg);
     }
   }
@@ -97,14 +95,13 @@ class MainServer extends Server {
       return message.respondWithException("auth: failed");
     }
 
-    this.userMap.set(message.connUUID, user.uuid);
-    this.authedUsers.add(message.instance);
+    this.userMap.set(message.instance, user.uuid);
     return message.respond({ data: "welcome" });
   }
 
   @command("create-server")
   createServer(message: Message) {
-    const userUUID = this.userMap.get(message.connUUID)!;
+    const userUUID = this.userMap.get(message.instance)!;
     if (!this.dbManager.hasUserPermission(userUUID, Permissions.CreateServer)) {
       return message.respondWithException("auth: no permission");
     }
@@ -128,7 +125,7 @@ class MainServer extends Server {
 
   @command("start-server")
   startServer(message: Message) {
-    const userUUID = this.userMap.get(message.connUUID)!;
+    const userUUID = this.userMap.get(message.instance)!;
     if (!this.dbManager.hasUserPermission(userUUID, Permissions.StartServer)) {
       return message.respondWithException("auth: no permission");
     }
@@ -152,7 +149,7 @@ class MainServer extends Server {
 
   @command("stop-server")
   stopServer(message: Message) {
-    const userUUID = this.userMap.get(message.connUUID)!;
+    const userUUID = this.userMap.get(message.instance)!;
     if (!this.dbManager.hasUserPermission(userUUID, Permissions.StopServer)) {
       return message.respondWithException("auth: no permission");
     }
