@@ -13,7 +13,8 @@
     "jsr:@std/path@^1.1.4": "1.1.5",
     "jsr:@std/path@^1.1.5": "1.1.5",
     "jsr:@std/uuid@^1.1.1": "1.1.1",
-    "jsr:@valibot/valibot@^1.4.2": "1.4.2"
+    "jsr:@valibot/valibot@^1.4.2": "1.4.2",
+    "npm:jose@^6.2.3": "6.2.3"
   },
   "jsr": {
     "@bronti/argon2@1.0.3": {
@@ -83,6 +84,11 @@
       "integrity": "14f7fbb7474a8ade216224062d1e8b23cd17ecbb5176fc23595e846778c4725d"
     }
   },
+  "npm": {
+    "jose@6.2.3": {
+      "integrity": "sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw=="
+    }
+  },
   "workspace": {
     "dependencies": [
       "jsr:@bronti/argon2@^1.0.3",
@@ -91,7 +97,8 @@
       "jsr:@std/fs@^1.0.23",
       "jsr:@std/path@^1.1.4",
       "jsr:@std/uuid@^1.1.1",
-      "jsr:@valibot/valibot@^1.4.2"
+      "jsr:@valibot/valibot@^1.4.2",
+      "npm:jose@^6.2.3"
     ]
   }
 }

@@ -9,6 +9,7 @@
     "@std/fs": "jsr:@std/fs@^1.0.23",
     "@std/path": "jsr:@std/path@^1.1.4",
     "@std/uuid": "jsr:@std/uuid@^1.1.1",
-    "@valibot/valibot": "jsr:@valibot/valibot@^1.4.2"
+    "@valibot/valibot": "jsr:@valibot/valibot@^1.4.2",
+    "jose": "npm:jose@^6.2.3"
   }
 }

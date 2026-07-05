@@ -98,6 +98,11 @@ export class DatabaseManagement {
     return user.permissions[permission];
   }
 
+  hasUserPermissionLevel(uuid: string, level: PermissionLevel) {
+    const user = this.globalDB.users[uuid];
+    return level <= user.permissionLevel;
+  }
+
   sync() {
     Deno.writeTextFileSync(globalDBPath, JSON.stringify(this.globalDB));
   }

@@ -1,4 +1,4 @@
-import { log } from "./server/wsServer.ts";
+import { log } from "./server/httpWsServer.ts";
 
 type Listener = (output: string) => void;
 
