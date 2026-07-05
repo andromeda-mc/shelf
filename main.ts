@@ -1,9 +1,5 @@
 import { log } from "./lib/server/httpWsServer.ts";
-import {
-  API_VERSION,
-  DatabaseManagement,
-  Permissions,
-} from "./lib/dbManagement.ts";
+import { DatabaseManagement, Permissions } from "./lib/dbManagement.ts";
 import { QueueManager } from "./lib/queueManager.ts";
 import { JavaFinder } from "./lib/javas.ts";
 import { ServerCreationInfo, ServerManager } from "./lib/mcServerManager.ts";
@@ -12,6 +8,7 @@ import * as v from "@valibot/valibot";
 import { promissify } from "./lib/utils/promises.ts";
 import { HttpServer } from "./lib/server/httpWsServer.ts";
 import { HandlerManager } from "./lib/server/handlerManager.ts";
+import * as vars from "./lib/vars.ts";
 
 const AuthSchema = v.object({
   username: v.string(),
@@ -51,7 +48,11 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "version",
     (options) => {
-      options.respond({ data: "api_version", version: API_VERSION });
+      options.respond({
+        data: "server-version",
+        api_version: vars.API_VERSION,
+        software_version: vars.SOFTWARE_VERSION,
+      });
     },
     undefined,
     "public",

@@ -3,8 +3,7 @@ import { hash, verify } from "@bronti/argon2";
 import { join } from "@std/path";
 import { existsSync } from "@std/fs";
 import { ServerCreationInfo, ServerSettings } from "./mcServerManager.ts";
-
-export const API_VERSION = 2;
+import * as vars from "./vars.ts";
 
 const rootPath = join(Deno.env.get("HOME") ?? "home", ".var/andromeda/stall2");
 const globalDBPath = join(rootPath, "global-db.json");
@@ -54,7 +53,7 @@ export class DatabaseManagement {
     Deno.mkdirSync(rootPath, { recursive: true });
     if (!existsSync(globalDBPath)) {
       this.globalDB = {
-        version: API_VERSION,
+        version: vars.API_VERSION,
         users: {},
         servers: {},
         additionalJavaPaths: [],
