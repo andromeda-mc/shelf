@@ -3,8 +3,10 @@
   "specifiers": {
     "jsr:@bronti/argon2@^1.0.3": "1.0.3",
     "jsr:@std/assert@^1.0.19": "1.0.19",
+    "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
     "jsr:@std/crypto@^1.1.0": "1.1.0",
+    "jsr:@std/data-structures@^1.1.1": "1.1.1",
     "jsr:@std/datetime@*": "0.225.5",
     "jsr:@std/datetime@~0.225.7": "0.225.7",
     "jsr:@std/fs@^1.0.23": "1.0.24",
@@ -26,11 +28,20 @@
         "jsr:@std/internal@^1.0.12"
       ]
     },
+    "@std/async@1.5.0": {
+      "integrity": "4c1f22d287a17ad7d8643b1952bc5a4d21e5d8b68dc8c20d8268eecc69096e82",
+      "dependencies": [
+        "jsr:@std/data-structures"
+      ]
+    },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
     },
     "@std/crypto@1.1.0": {
       "integrity": "b8d6d0a6377a32b213af2661ed7bf1062d94feac0c57def5526a8e74a95c3ec8"
+    },
+    "@std/data-structures@1.1.1": {
+      "integrity": "7e1fcf19771fb9c6dbcd7f65039d6d42ef8dc023cfbc0c4cdc74b24e09229380"
     },
     "@std/datetime@0.225.5": {
       "integrity": "9f650f6caec546b80172e95a4edb8478d5fe060c4c937f7ede242ffceab6efc9"
@@ -93,6 +104,7 @@
     "dependencies": [
       "jsr:@bronti/argon2@^1.0.3",
       "jsr:@std/assert@^1.0.19",
+      "jsr:@std/async@^1.5.0",
       "jsr:@std/datetime@~0.225.7",
       "jsr:@std/fs@^1.0.23",
       "jsr:@std/path@^1.1.4",

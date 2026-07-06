@@ -10,7 +10,11 @@ export class ProcessMonitor {
   process;
 
   constructor(bin: string, javaArgs?: string[], cwd?: string) {
-    const args = ["-qec", bin + " " + javaArgs?.join(" ")];
+    const args = ["-qec", bin];
+    if (javaArgs) {
+      args.push(" ");
+      args.push(javaArgs.join(" "));
+    }
 
     this.process = new Deno.Command("script", {
       args,
@@ -48,6 +52,7 @@ export class ProcessMonitor {
   }
 
   private handleNewOutput(chunk: string) {
+    chunk = chunk.replaceAll("\r\n", "\n");
     this.history += chunk;
 
     for (const listener of this.listeners.values()) {
@@ -68,6 +73,7 @@ export class ProcessMonitor {
 
   addListener(listener: Listener) {
     this.listeners.add(listener);
+    return listener;
   }
 
   removeListener(listener: Listener) {
