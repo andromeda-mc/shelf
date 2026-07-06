@@ -1,8 +1,10 @@
+import { JWTPayload, jwtVerify, SignJWT } from "jose";
 import { generate as generateUUID } from "@std/uuid/v7";
 import { hash, verify } from "@bronti/argon2";
 import { join } from "@std/path";
 import { existsSync } from "@std/fs";
 import { ServerCreationInfo, ServerSettings } from "./mcServerManager.ts";
+import * as v from "@valibot/valibot";
 import * as vars from "./vars.ts";
 
 const rootPath = join(Deno.env.get("HOME") ?? "home", ".var/andromeda/stall2");
@@ -46,8 +48,15 @@ interface GlobalDBData {
   additionalJavaPaths: string[];
 }
 
+const JWTTokenSchema = v.object({
+  tokenType: v.literal("httpAuth"),
+  userUUID: v.pipe(v.string(), v.uuid()),
+});
+type JWTToken = v.InferOutput<typeof JWTTokenSchema>;
+
 export class DatabaseManagement {
   globalDB: GlobalDBData;
+  jwtToken = new TextEncoder().encode(generateUUID());
 
   constructor() {
     Deno.mkdirSync(rootPath, { recursive: true });
@@ -85,6 +94,10 @@ export class DatabaseManagement {
     return uuid;
   }
 
+  userExists(uuid: string): boolean {
+    return uuid in this.globalDB.users;
+  }
+
   findUserByUsername(username: string) {
     return Object.values(this.globalDB.users).find((v) => v.name === username);
   }
@@ -99,7 +112,7 @@ export class DatabaseManagement {
 
   hasUserPermissionLevel(uuid: string, level: PermissionLevel) {
     const user = this.globalDB.users[uuid];
-    return level <= user.permissionLevel;
+    return level >= user.permissionLevel;
   }
 
   sync() {
@@ -109,6 +122,36 @@ export class DatabaseManagement {
   validateLoginHash(password: string, uuid: string) {
     const user = this.globalDB.users[uuid];
     return verify(password, user.loginHash);
+  }
+
+  // JWT Logic for HTTP Requests
+
+  async generateJWT(userUUID: string): Promise<string | undefined> {
+    if (!this.userExists(userUUID)) return;
+
+    return await new SignJWT({ tokenType: "httpAuth", userUUID } as JWTToken &
+      JWTPayload)
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("10 mins")
+      .sign(this.jwtToken);
+  }
+
+  async validateJWT(token: string): Promise<string | undefined> {
+    try {
+      const { payload } = await jwtVerify(token, this.jwtToken);
+      const result = v.safeParse(JWTTokenSchema, payload);
+
+      if (!result.success) return;
+
+      const { userUUID } = result.output;
+
+      if (!this.userExists(userUUID)) return;
+
+      return userUUID;
+    } catch {
+      return;
+    }
   }
 
   // Servers

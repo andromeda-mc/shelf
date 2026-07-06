@@ -52,7 +52,7 @@ export class HttpServer {
       {
         ...this.options,
         onListen({ hostname, port }) {
-          log("WS", `Andromeda Shelf listens on ws://${hostname}:${port}`);
+          log("HTTP/WS", `Andromeda Shelf listens on ws://${hostname}:${port}`);
         },
       },
       (req, conInfo) => {
@@ -62,6 +62,7 @@ export class HttpServer {
         }
 
         if (req.method === "POST") {
+          log("HTTP", hostname, "Request:", new URL(req.url).pathname);
           return this.handleHttpPostRequest(req);
         }
 
@@ -90,8 +91,79 @@ export class HttpServer {
     );
   }
 
-  protected handleHttpPostRequest(req: Request): Response {
-    throw new Error("Not implemented - handleHttpPostRequest");
+  protected async handleHttpPostRequest(req: Request): Promise<Response> {
+    try {
+      if (!req.headers.has("Authorization")) {
+        log("HTTP", "Unauthorized user. No token specified");
+        return this.errorHTML(401, "No token specified");
+      }
+
+      const auth = req.headers.get("Authorization")!;
+      if (!auth.startsWith("JWT ")) {
+        log("HTTP", "Unauthorized user. Wrong token type specified");
+        return this.errorHTML(401, "Wrong token type specified");
+      }
+
+      const userUUID = await this.dbManager.validateJWT(auth.slice(4));
+      if (!userUUID) {
+        log("HTTP", "Unauthorized user. Invalid token specified");
+        return this.errorHTML(403, "Invalid token");
+      }
+
+      const url = new URL(req.url);
+      const command = url.pathname.slice(1);
+
+      if (!command) {
+        log("HTTP", "Invalid request received: No command");
+        return this.errorHTML(400, "No command specified");
+      }
+
+      if (!(command in this.handlerManager.hpHandlers)) {
+        log("HTTP", "Unknown command:", command);
+        return this.errorHTML(404, "Unknown command specified");
+      }
+
+      const entry = this.handlerManager.hpHandlers[command];
+      const options: Record<any, any> = {};
+
+      options.userUUID = userUUID;
+      options.request = req;
+
+      for (const flag of entry.flags) {
+        // @ts-ignore we're checking if it is a Permission
+        if (Object.values(Permissions).includes(flag) && userUUID) {
+          if (
+            !this.dbManager.hasUserPermission(userUUID, flag as Permissions)
+          ) {
+            log("HTTP", "Unauthorized user. No permission");
+            return this.errorHTML(403, "No permission");
+          }
+        } else if (flag in PermissionLevel && userUUID) {
+          if (
+            this.dbManager.hasUserPermissionLevel(
+              userUUID,
+              flag as PermissionLevel,
+            )
+          ) {
+            log("HTTP", "Unauthorized user. Below permission level");
+            return this.errorHTML(403, "Below required permission level");
+          }
+        }
+      }
+
+      try {
+        return entry.handler(options);
+      } catch (err) {
+        log("HTTP", `Error in handler '${command}': ${err}`);
+        return this.errorHTML(
+          500,
+          "An error occured within the handler for your proccess",
+        );
+      }
+    } catch (err) {
+      log("HTTP", "Invalid request received: " + err);
+      return this.errorHTML(400, "Server failed to process request");
+    }
   }
 
   protected handleWebSocketCommand(socket: WebSocket, event: MessageEvent) {
@@ -158,7 +230,7 @@ export class HttpServer {
             )
           ) {
             error("auth: no permission");
-            log("WS", "Unauthorized user. No permission level");
+            log("WS", "Unauthorized user. Below permission level");
             return;
           }
         }
@@ -218,5 +290,9 @@ export class HttpServer {
     additionalData?: Record<string, any>,
   ) {
     return this.sendWS(socket, { data: "exception", msg, ...additionalData });
+  }
+
+  errorHTML(status: number, msg?: string) {
+    return new Response(msg, { status, statusText: msg });
   }
 }

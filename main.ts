@@ -1,5 +1,9 @@
 import { log } from "./lib/server/httpWsServer.ts";
-import { DatabaseManagement, Permissions } from "./lib/dbManagement.ts";
+import {
+  DatabaseManagement,
+  PermissionLevel,
+  Permissions,
+} from "./lib/dbManagement.ts";
 import { QueueManager } from "./lib/queueManager.ts";
 import { JavaFinder } from "./lib/javas.ts";
 import { ServerCreationInfo, ServerManager } from "./lib/mcServerManager.ts";
@@ -131,6 +135,21 @@ if (import.meta.main) {
     },
     SimpleServerActionSchema,
     Permissions.StopServer,
+  );
+
+  handleManager.addWebSocketHandler(
+    "request-jwt-token",
+    async (options) => {
+      const token = await dbManager.generateJWT(options.userUUID);
+
+      if (!token) {
+        throw "auth: rejected";
+      }
+
+      return options.respond({ data: "new-jwt-token", token });
+    },
+    v.object({}),
+    PermissionLevel.User,
   );
 
   log("StartUp", "Initialising MainServer...");

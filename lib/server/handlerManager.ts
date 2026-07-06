@@ -1,5 +1,6 @@
 // deno-lint-ignore-file ban-types no-explicit-any
 import { PermissionLevel, Permissions } from "../dbManagement.ts";
+import { MaybePromise } from "../utils/type.ts";
 import type { MessageData } from "./httpWsServer.ts";
 import * as v from "@valibot/valibot";
 
@@ -9,20 +10,21 @@ type BaseSchema = GenericSchema | undefined;
 // public allows unauthorized users
 // force-public allows *only* unauthorized users
 
-export type CommandFlags =
-  | Permissions
-  | PermissionLevel
-  | "public"
-  | "force-public";
+export type CommandFlags = Permissions | PermissionLevel;
+export type AdvancedCommandFlags = CommandFlags | "public" | "force-public";
 
-type Command = {
-  handler: (options: any) => void;
+interface Command<Resp, Flags> {
+  handler: (options: any) => Resp;
+  flags: readonly Flags[];
+}
+
+interface WsCommand extends Command<void, AdvancedCommandFlags> {
   schema: BaseSchema;
-  flags: readonly CommandFlags[];
-};
+}
+type HpCommand = Command<MaybePromise<Response>, CommandFlags>;
 
 type BaseOptions<
-  Flags extends readonly CommandFlags[],
+  Flags extends readonly AdvancedCommandFlags[],
   Schema extends BaseSchema,
 > = (Schema extends GenericSchema ? { data: v.InferOutput<Schema> } : {}) &
   ("force-public" extends Flags[number]
@@ -31,19 +33,19 @@ type BaseOptions<
       ? { userUUID?: string }
       : { userUUID: string });
 
-type WSCOptions<Flags extends readonly CommandFlags[]> = {
+type WSCOptions<Flags extends readonly AdvancedCommandFlags[]> = {
   respond: (message: MessageData) => void;
   authConnection: (userUUID: string) => void;
 };
 
-type HPEOptions<Flags extends readonly CommandFlags[]> = { response: Response };
+type HPEOptions<Flags extends readonly CommandFlags[]> = { request: Request };
 
 export class HandlerManager {
-  wsHandlers: Record<string, Command> = {};
-  hpHandlers: Record<string, Command> = {};
+  wsHandlers: Record<string, WsCommand> = {};
+  hpHandlers: Record<string, HpCommand> = {};
 
   addWebSocketHandler<
-    Flags extends readonly CommandFlags[],
+    Flags extends readonly AdvancedCommandFlags[],
     Schema extends BaseSchema,
   >(
     command: string,
@@ -59,10 +61,11 @@ export class HandlerManager {
     Schema extends BaseSchema,
   >(
     command: string,
-    handler: (options: HPEOptions<Flags> & BaseOptions<Flags, Schema>) => void,
-    schema: Schema,
+    handler: (
+      options: HPEOptions<Flags> & BaseOptions<Flags, Schema>,
+    ) => Response,
     ...flags: Flags
   ) {
-    this.hpHandlers[command] = { handler, schema, flags };
+    this.hpHandlers[command] = { handler, flags };
   }
 }
