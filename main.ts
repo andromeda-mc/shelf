@@ -75,7 +75,10 @@ if (import.meta.main) {
       if (!success) throw "auth: failed";
 
       options.authConnection(user.uuid);
-      options.respond({ data: "welcome" });
+      options.respond({
+        data: "welcome",
+        servers: serverManager.listAllVisibleServers(user.uuid),
+      });
     },
     AuthSchema,
     "force-public",
@@ -103,6 +106,9 @@ if (import.meta.main) {
     "start-server",
     (options) => {
       const { uuid } = options.data;
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
       const info = dbManager.getServer(uuid);
       const promise = serverManager.startServer(uuid);
 
@@ -121,6 +127,9 @@ if (import.meta.main) {
     "stop-server",
     (options) => {
       const { uuid } = options.data;
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
       const info = dbManager.getServer(uuid);
       const promise = promissify(() => {
         serverManager.stopServer(uuid);
@@ -135,6 +144,17 @@ if (import.meta.main) {
     },
     SimpleServerActionSchema,
     Permissions.StopServer,
+  );
+
+  handleManager.addWebSocketHandler(
+    "list-servers",
+    (options) => {
+      options.respond({
+        data: "server-list",
+        servers: serverManager.listAllVisibleServers(options.userUUID),
+      });
+    },
+    v.object({}),
   );
 
   handleManager.addWebSocketHandler(

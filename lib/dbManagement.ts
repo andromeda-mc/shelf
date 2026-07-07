@@ -182,6 +182,9 @@ export class DatabaseManagement {
       maxMemory: 2048,
       icon: "grass",
       creationDate: new Date().toISOString(),
+
+      visibilityLevel: PermissionLevel.Admin,
+      userWhitelist: [],
     };
     this.globalDB.servers[uuid] = settings;
 

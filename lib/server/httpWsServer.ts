@@ -109,6 +109,10 @@ export class HttpServer {
         log("HTTP", "Unauthorized user. Invalid token specified");
         return this.errorHTML(403, "Invalid token");
       }
+      if (!this.dbManager.userExists(userUUID)) {
+        log("HTTP", "Unknown user");
+        return this.errorHTML(401, "Unknown user");
+      }
 
       const url = new URL(req.url);
       const command = url.pathname.slice(1);
@@ -207,6 +211,12 @@ export class HttpServer {
       if (userUUID && entry.flags.includes("force-public")) {
         error("auth: authed users disallowed");
         log("WS", "Authorized users disallowed");
+        return;
+      }
+
+      if (userUUID && !this.dbManager.userExists(userUUID)) {
+        error("auth: unknown user");
+        log("WS", "Unknown user");
         return;
       }
 

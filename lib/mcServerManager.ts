@@ -1,5 +1,5 @@
 import { join } from "@std/path";
-import type { DatabaseManagement } from "./dbManagement.ts";
+import type { DatabaseManagement, PermissionLevel } from "./dbManagement.ts";
 import { JavaFinder } from "./javas.ts";
 import { loaders, ServerSoftwares } from "./serverSoftwares.ts";
 import { existsSync } from "@std/fs";
@@ -22,6 +22,9 @@ export interface ServerSettings {
   maxMemory: number;
   icon: string; // Either specified icon library or path to user uploaded image
   creationDate: string; // ISO
+
+  visibilityLevel: PermissionLevel; // Minimum Permission Level to see this server
+  userWhitelist: string[]; // Additional allowed user UUIDs
 }
 
 export interface ServerCreationInfo {
@@ -145,13 +148,30 @@ export class ServerManager {
     }
   }
 
+  isUserAllowedToAccessServer(userUUID: string, serverUUID: string): boolean {
+    if (!this.states.has(serverUUID)) {
+      throw "unknown: server";
+    }
+    const serverMetadata = this.dbManager.getServer(serverUUID);
+    return this.checkAccess(serverMetadata, userUUID);
+  }
+
+  private checkAccess(server: ServerSettings, userUUID: string) {
+    if (server.userWhitelist.includes(userUUID)) return true;
+
+    return this.dbManager.hasUserPermissionLevel(
+      userUUID,
+      server.visibilityLevel,
+    );
+  }
+
   async startServer(uuid: string) {
     if (!this.states.has(uuid)) {
-      throw new Error("Server doesn't exist");
+      throw "unknown: server";
     }
 
     if (this.states.get(uuid) !== ServerStates.Stopped) {
-      throw new Error("Server is already running");
+      throw "invalid: already running";
     }
 
     const serverMetadata = this.dbManager.getServer(uuid);
@@ -183,7 +203,7 @@ export class ServerManager {
 
   stopServer(uuid: string) {
     if (!this.states.has(uuid)) {
-      throw new Error("Server doesn't exist");
+      throw "unknown: server";
     }
 
     // if (this.states.get(uuid) !== ServerStates.Running) {
@@ -191,5 +211,15 @@ export class ServerManager {
     // }
     const watcher = this.processes.get(uuid)!;
     return watcher.terminate();
+  }
+
+  listAllServers() {
+    return Object.values(this.dbManager.servers);
+  }
+
+  listAllVisibleServers(userUUID: string) {
+    const servers = this.listAllServers();
+
+    return servers.filter((server) => this.checkAccess(server, userUUID));
   }
 }
