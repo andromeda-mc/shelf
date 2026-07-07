@@ -1,0 +1,28 @@
+opencollection: 1.0.0
+
+info:
+  name: Andromeda Api v2
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  auth:
+    type: apikey
+    key: Authorization
+    value: JWT eyJhbGciOiJIUzI1NiJ9.eyJ0b2tlblR5cGUiOiJodHRwQXV0aCIsInVzZXJVVUlEIjoiMDE5ZjNjNTUtYzEyYS03MmE3LWJmYTAtMzIyMmFkYTQ5OGJjIiwiaWF0IjoxNzgzNDI0NjczLCJleHAiOjE3ODM0MjUyNzN9.PCjfUGLYETzjaYLxY8DifVPa86DF9Sw6CaPungGhI_M
+    placement: header
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git
