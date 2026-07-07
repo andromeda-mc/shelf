@@ -10,14 +10,10 @@ export class ProcessMonitor {
   process;
 
   constructor(bin: string, javaArgs?: string[], cwd?: string) {
-    const args = ["-qec", bin];
-    if (javaArgs) {
-      args.push(" ");
-      args.push(javaArgs.join(" "));
-    }
+    const args = [bin, javaArgs?.join(" ")];
 
     this.process = new Deno.Command("script", {
-      args,
+      args: ["-qec", args.join(" ")].filter(Boolean),
       cwd,
       stdin: "piped",
       stdout: "piped",
@@ -29,7 +25,7 @@ export class ProcessMonitor {
 
     log(
       "ProcessMonitor",
-      `Starting process ${this.process.pid}: "script ${args?.join(" ")}"`,
+      `Starting process ${this.process.pid}: "script -qec ${args?.join(" ")}"`,
     );
 
     const createHandler = () =>

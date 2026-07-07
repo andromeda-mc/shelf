@@ -13,6 +13,7 @@ import { promissify } from "./lib/utils/promises.ts";
 import { HttpServer } from "./lib/server/httpWsServer.ts";
 import { HandlerManager } from "./lib/server/handlerManager.ts";
 import * as vars from "./lib/vars.ts";
+import { existsSync } from "@std/fs";
 
 const AuthSchema = v.object({
   username: v.string(),
@@ -89,6 +90,9 @@ if (import.meta.main) {
     (options) => {
       const info = options.data as ServerCreationInfo;
       const promise = serverManager.createServer(info);
+      promise.then((mcServer) =>
+        server.sendAllWS({ data: "add-new-server", server: mcServer }),
+      );
 
       queueManager.scheduleTask({
         title: "Creating server " + name,
@@ -147,6 +151,30 @@ if (import.meta.main) {
   );
 
   handleManager.addWebSocketHandler(
+    "delete-server",
+    (options) => {
+      const { uuid } = options.data;
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
+      const info = dbManager.getServer(uuid);
+      const promise = promissify(() => {
+        serverManager.deleteServer(uuid);
+      });
+      promise.then(() => server.sendAllWS({ data: "remove-server", uuid }));
+
+      queueManager.scheduleTask({
+        title: "Deleting server " + info.name,
+        type: "Server deletion",
+        promise,
+        notifyOnFinish: true,
+      });
+    },
+    SimpleServerActionSchema,
+    Permissions.DeleteServer,
+  );
+
+  handleManager.addWebSocketHandler(
     "list-servers",
     (options) => {
       options.respond({
@@ -171,6 +199,20 @@ if (import.meta.main) {
     v.object({}),
     PermissionLevel.User,
   );
+
+  handleManager.addHttpPostHandler("icon", (options) => {
+    const splitPath = options.url.pathname.split("/").slice(2);
+    if (splitPath.length === 0) {
+      return server.errorHTML(400, "No icon specified");
+    }
+    const iconPath = dbManager.getIconPath(splitPath[0]);
+    if (!existsSync(iconPath)) {
+      return server.errorHTML(404, "Unknown icon");
+    }
+    return new Response(Deno.readFileSync(iconPath), {
+      headers: { "Content-Type": "image/png" },
+    });
+  });
 
   log("StartUp", "Initialising MainServer...");
   const server = new HttpServer(handleManager, dbManager, {});

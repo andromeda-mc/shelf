@@ -33,12 +33,15 @@ type BaseOptions<
       ? { userUUID?: string }
       : { userUUID: string });
 
-type WSCOptions<Flags extends readonly AdvancedCommandFlags[]> = {
+interface WSCOptions<Flags extends readonly AdvancedCommandFlags[]> {
   respond: (message: MessageData) => void;
   authConnection: (userUUID: string) => void;
-};
+}
 
-type HPEOptions<Flags extends readonly CommandFlags[]> = { request: Request };
+interface HPEOptions<Flags extends readonly CommandFlags[]> {
+  request: Request;
+  url: URL;
+}
 
 export class HandlerManager {
   wsHandlers: Record<string, WsCommand> = {};

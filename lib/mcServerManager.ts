@@ -140,12 +140,18 @@ export class ServerManager {
       this.states.set(generatedInfo.uuid, ServerStates.Stopped);
 
       this.dbManager.sync();
+      return generatedInfo.settings;
     } catch (e: unknown) {
       this.dbManager.deleteServer(generatedInfo.uuid);
       this.dbManager.sync();
 
       throw e;
     }
+  }
+
+  deleteServer(uuid: string) {
+    this.dbManager.deleteServer(uuid);
+    this.dbManager.sync();
   }
 
   isUserAllowedToAccessServer(userUUID: string, serverUUID: string): boolean {

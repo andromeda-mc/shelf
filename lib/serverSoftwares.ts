@@ -347,7 +347,7 @@ export const loaders: Record<ServerSoftwares, Loader> = {
   Quilt: new FabricSoftwareData(
     "https://meta.quiltmc.org/v3/versions",
     "https://quiltmc.org/api/v1/download-latest-installer/java-universal",
-    false,
+    true,
     [
       "install",
       "server",
@@ -363,7 +363,7 @@ export const loaders: Record<ServerSoftwares, Loader> = {
   Fabric: new FabricSoftwareData(
     "https://meta.fabricmc.net/v2/versions",
     "https://meta.fabricmc.net/v2/versions/loader/$mc/$ld/$in/server/jar",
-    true,
+    false,
   ),
   Paper: new PaperSoftwareData(),
 };

@@ -10,6 +10,7 @@ import * as vars from "./vars.ts";
 const rootPath = join(Deno.env.get("HOME") ?? "home", ".var/andromeda/stall2");
 const globalDBPath = join(rootPath, "global-db.json");
 const instancesPath = join(rootPath, "instances");
+const iconRootPath = existsSync("icons") ? "icons" : join(rootPath, "icons");
 
 export enum PermissionLevel {
   Visitor,
@@ -22,13 +23,15 @@ export enum Permissions {
   StartServer = "start-server",
   StopServer = "stop-server",
   KillServer = "kill-server",
+  DeleteServer = "delete-server",
 }
 
 const defaultPermissions: Record<Permissions, boolean> = {
   "create-server": false,
-  "start-server": false,
+  "start-server": true,
   "stop-server": false,
   "kill-server": false,
+  "delete-server": true,
 };
 
 interface UserData {
@@ -209,5 +212,11 @@ export class DatabaseManagement {
 
   getInstancePath(uuid: string) {
     return join(instancesPath, uuid);
+  }
+
+  // Misc
+
+  getIconPath(icon: string) {
+    return join(iconRootPath, icon + ".png");
   }
 }

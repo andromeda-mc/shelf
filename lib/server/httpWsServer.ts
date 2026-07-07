@@ -115,7 +115,7 @@ export class HttpServer {
       }
 
       const url = new URL(req.url);
-      const command = url.pathname.slice(1);
+      const command = url.pathname.slice(1).split("/")[0];
 
       if (!command) {
         log("HTTP", "Invalid request received: No command");
@@ -132,6 +132,7 @@ export class HttpServer {
 
       options.userUUID = userUUID;
       options.request = req;
+      options.url = url;
 
       for (const flag of entry.flags) {
         // @ts-ignore we're checking if it is a Permission
