@@ -200,6 +200,15 @@ if (import.meta.main) {
     PermissionLevel.User,
   );
 
+  handleManager.addWebSocketHandler(
+    "remove-notification",
+    (options) => {
+      queueManager.removeNotification(options.data.uuid);
+    },
+    SimpleServerActionSchema,
+    Permissions.ManageNotifications,
+  );
+
   handleManager.addHttpPostHandler("icon", (options) => {
     const splitPath = options.url.pathname.split("/").slice(2);
     if (splitPath.length === 0) {
@@ -225,6 +234,9 @@ if (import.meta.main) {
   };
   queueManager.onNotificationAdded = (notification) => {
     server.sendAllWS({ data: "queue-new-notification", notification });
+  };
+  queueManager.onNotificationRemoved = (notificationUUID) => {
+    server.sendAllWS({ data: "queue-remove-notification", notificationUUID });
   };
 
   log("StartUp", "Starting MainServer...");

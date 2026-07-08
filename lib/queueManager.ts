@@ -42,6 +42,7 @@ export class QueueManager {
   onQueueAdded: undefined | ((item: QueueItem<any>) => void);
   onQueueRemoved: undefined | ((item: string) => void);
   onNotificationAdded: undefined | ((item: QueueNotification) => void);
+  onNotificationRemoved: undefined | ((item: string) => void);
 
   scheduleTask(stubTask: StubQueueItem) {
     function deleteQueue(queue: QueueManager) {
@@ -104,9 +105,14 @@ export class QueueManager {
     this.onNotificationAdded?.(notification);
   }
 
-  removeNotification(uuid: string) {
-    this._notifications = this._notifications.filter(
-      (i) => i.itemUUID === uuid,
-    );
+  removeNotification(uuid: string): boolean {
+    const idx = this._notifications.findIndex((i) => i.itemUUID === uuid);
+
+    if (idx === -1) {
+      return false;
+    }
+    this.onNotificationRemoved?.(uuid);
+    this._notifications.splice(idx, 1);
+    return true;
   }
 }

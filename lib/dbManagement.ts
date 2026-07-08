@@ -24,6 +24,8 @@ export enum Permissions {
   StopServer = "stop-server",
   KillServer = "kill-server",
   DeleteServer = "delete-server",
+
+  ManageNotifications = "manage-notifications",
 }
 
 const defaultPermissions: Record<Permissions, boolean> = {
@@ -31,7 +33,8 @@ const defaultPermissions: Record<Permissions, boolean> = {
   "start-server": true,
   "stop-server": false,
   "kill-server": false,
-  "delete-server": true,
+  "delete-server": false,
+  "manage-notifications": false,
 };
 
 interface UserData {
