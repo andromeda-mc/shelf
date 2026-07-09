@@ -13,6 +13,7 @@ import { HttpServer } from "./lib/server/httpWsServer.ts";
 import { HandlerManager } from "./lib/server/handlerManager.ts";
 import * as vars from "./lib/vars.ts";
 import { existsSync } from "@std/fs";
+import { omit } from "./lib/utils/objects.ts";
 
 const AuthSchema = v.object({
   username: v.string(),
@@ -263,7 +264,10 @@ if (import.meta.main) {
   };
 
   queueManager.onQueueAdded = (task) => {
-    server.sendAllWS({ data: "queue-new-task", task });
+    server.sendAllWS({
+      data: "queue-new-task",
+      task: omit(task, "promise", "onComplete", "onFailure"),
+    });
   };
   queueManager.onQueueRemoved = (taskUUID) => {
     server.sendAllWS({ data: "queue-remove-task", taskUUID });
