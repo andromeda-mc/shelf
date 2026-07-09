@@ -289,12 +289,18 @@ class PaperSoftwareData implements Loader {
   wantsToBeInstalled = false;
   hasLoaderVersions = true;
 
-  constructor() {
-    fetch("https://fill.papermc.io/v3/projects/paper").then(async (resp) => {
-      const json = await resp.json();
-      this.manifest = json;
-      this.produceVersionLists();
-    });
+  project;
+
+  constructor(project: string) {
+    this.project = project;
+
+    fetch("https://fill.papermc.io/v3/projects/" + project).then(
+      async (resp) => {
+        const json = await resp.json();
+        this.manifest = json;
+        this.produceVersionLists();
+      },
+    );
   }
 
   private async produceVersionLists() {
@@ -302,7 +308,7 @@ class PaperSoftwareData implements Loader {
     this.mcVersions = Object.values(this.manifest.versions).flat();
 
     const response = await fetch(
-      `https://fill.papermc.io/v3/projects/paper/versions/${this.mcVersions[0]}/builds/latest`,
+      `https://fill.papermc.io/v3/projects/${this.project}/versions/${this.mcVersions[0]}/builds/latest`,
     );
     const json = await response.json();
     this.recommended[this.mcVersions[0]] = json.id.toString();
@@ -310,7 +316,8 @@ class PaperSoftwareData implements Loader {
 
   async getLoaderVersionsForMC(mcVersion: string): Promise<string[]> {
     const response = await fetch(
-      "https://fill.papermc.io/v3/projects/paper/versions/" + mcVersion,
+      `https://fill.papermc.io/v3/projects/${this.project}/versions/` +
+        mcVersion,
     );
     const json: PaperBuildMetadata = await response.json();
 
@@ -322,7 +329,7 @@ class PaperSoftwareData implements Loader {
     loaderVersion: string,
   ): Promise<string> {
     const response = await fetch(
-      `https://fill.papermc.io/v3/projects/paper/versions/${mcVersion}/builds/${loaderVersion}`,
+      `https://fill.papermc.io/v3/projects/${this.project}/versions/${mcVersion}/builds/${loaderVersion}`,
     );
     const buildMetadata = await response.json();
 
@@ -338,7 +345,8 @@ export type ServerSoftwares =
   | "NeoForge"
   | "Quilt"
   | "Fabric"
-  | "Paper";
+  | "Paper"
+  | "Folia";
 
 export const Vanilla = new VanillaSoftwareData();
 
@@ -375,5 +383,6 @@ export const loaders: Record<ServerSoftwares, Loader> = {
     "https://meta.fabricmc.net/v2/versions/loader/$mc/$ld/$in/server/jar",
     false,
   ),
-  Paper: new PaperSoftwareData(),
+  Paper: new PaperSoftwareData("paper"),
+  Folia: new PaperSoftwareData("folia"),
 };
