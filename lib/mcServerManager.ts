@@ -47,6 +47,10 @@ export class ServerManager {
 
   states = new Map<string, ServerStates>();
   processes = new Map<string, ProcessMonitor>();
+  listeners = new Map<string, Set<WebSocket>>();
+
+  onServerCrash: undefined | ((name: string) => void);
+  onStateChange: undefined | ((uuid: string, state: ServerStates) => void);
 
   constructor(dbManager: DatabaseManagement, javaFinder: JavaFinder) {
     this.dbManager = dbManager;
@@ -54,6 +58,7 @@ export class ServerManager {
 
     for (const server of Object.values(this.dbManager.servers)) {
       this.states.set(server.uuid, ServerStates.Stopped);
+      this.listeners.set(server.uuid, new Set());
     }
   }
 
@@ -96,7 +101,7 @@ export class ServerManager {
 
         const result = await installer.status;
         if (!result) {
-          throw Error("Installation failed");
+          throw "installation: script failed";
         }
 
         const run_path = join(generatedInfo.instancePath, "run.sh");
@@ -138,6 +143,7 @@ export class ServerManager {
 
       generatedInfo.settings.launchOptions.push("nogui");
       this.states.set(generatedInfo.uuid, ServerStates.Stopped);
+      this.listeners.set(generatedInfo.uuid, new Set());
 
       this.dbManager.sync();
       return generatedInfo.settings;
@@ -197,14 +203,31 @@ export class ServerManager {
       this.dbManager.getInstancePath(uuid),
     );
 
-    // Test: Dump output to console
-    const encoder = new TextEncoder();
     watcher.addListener((output) => {
-      Deno.stdout.write(encoder.encode(output));
+      const msg = JSON.stringify({ data: "live-log", uuid, output });
+
+      this.listeners.get(uuid)!.forEach((socket) => socket.send(msg));
+
+      if (output.includes("Stopping server")) {
+        this.states.set(uuid, ServerStates.Stopping);
+        this.onStateChange?.(uuid, ServerStates.Stopping);
+      } else if (output.includes('For help, type "help"')) {
+        this.states.set(uuid, ServerStates.Running);
+        this.onStateChange?.(uuid, ServerStates.Running);
+      }
     });
 
     this.states.set(uuid, ServerStates.Starting);
+    this.onStateChange?.(uuid, ServerStates.Starting);
+
     this.processes.set(uuid, watcher);
+
+    watcher.process.status.then((v) => {
+      this.states.set(uuid, ServerStates.Stopped);
+      this.onStateChange?.(uuid, ServerStates.Stopped);
+
+      if (!v.success) this.onServerCrash?.(serverMetadata.name);
+    });
   }
 
   stopServer(uuid: string) {
@@ -212,11 +235,23 @@ export class ServerManager {
       throw "unknown: server";
     }
 
-    // if (this.states.get(uuid) !== ServerStates.Running) {
-    //   throw new Error("Server is not running");
-    // }
+    if (this.states.get(uuid) !== ServerStates.Running) {
+      throw "server: not running";
+    }
     const watcher = this.processes.get(uuid)!;
     return watcher.terminate();
+  }
+
+  terminateServer(uuid: string) {
+    if (!this.states.has(uuid)) {
+      throw "unknown: server";
+    }
+
+    if (this.states.get(uuid) === ServerStates.Stopped) {
+      throw "server: is stopped";
+    }
+    const watcher = this.processes.get(uuid)!;
+    return watcher.kill();
   }
 
   listAllServers() {
@@ -227,5 +262,21 @@ export class ServerManager {
     const servers = this.listAllServers();
 
     return servers.filter((server) => this.checkAccess(server, userUUID));
+  }
+
+  addServerListener(serverUUID: string, socket: WebSocket) {
+    const listener = this.listeners.get(serverUUID);
+    if (!listener) throw "unknown: server";
+    listener.add(socket);
+  }
+
+  removeServerListener(serverUUID: string, socket: WebSocket) {
+    const listener = this.listeners.get(serverUUID);
+    if (!listener) throw "unknown: server";
+    listener.delete(socket);
+  }
+
+  removeServerListeners(socket: WebSocket) {
+    this.listeners.values().forEach((set) => set.delete(socket));
   }
 }

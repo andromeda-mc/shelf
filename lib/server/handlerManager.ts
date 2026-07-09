@@ -34,8 +34,16 @@ type BaseOptions<
       : { userUUID: string });
 
 interface WSCOptions<Flags extends readonly AdvancedCommandFlags[]> {
+  /** Respond to the received message */
   respond: (message: MessageData) => void;
+
+  /** Mark this socket connection as authorized with the specified user UUID */
   authConnection: (userUUID: string) => void;
+
+  socket: WebSocket;
+
+  /** Handes errors inside the promise. Takes Promises and Functions and converts them to a Promise */
+  wrapPromise: <T>(fn: MaybePromise<T>) => Promise<T>;
 }
 
 interface HPEOptions<Flags extends readonly CommandFlags[]> {

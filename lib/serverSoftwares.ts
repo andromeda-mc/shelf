@@ -58,7 +58,7 @@ class MultiMCSoftwareData implements Loader {
   }
 
   private produceVersionLists() {
-    if (!this.metadata) throw Error("No metadata available");
+    if (!this.metadata) throw new Error("No metadata available");
 
     this.mcVersions = [
       ...new Set(
@@ -147,7 +147,7 @@ class VanillaSoftwareData implements Loader {
   }
 
   private produceVersionLists() {
-    if (!this.versionManifest) throw Error("No metadata available");
+    if (!this.versionManifest) throw new Error("No metadata available");
 
     this.mcVersions = this.versionManifest.versions
       .filter((v) => v.type === "snapshot" || v.type === "release")
@@ -158,7 +158,7 @@ class VanillaSoftwareData implements Loader {
   }
 
   async getVersionMetadata(mcVersion: string): Promise<VanillaVersionMetadata> {
-    if (!this.versionManifest) throw Error("No metadata available");
+    if (!this.versionManifest) throw new Error("No metadata available");
 
     const packageResponse = await fetch(
       this.versionManifest.versions.find((v) => v.id === mcVersion)!.url,
@@ -170,7 +170,8 @@ class VanillaSoftwareData implements Loader {
 
   async produceDownloadUrl(mcVersion: string): Promise<string> {
     const versionMetadata = await this.getVersionMetadata(mcVersion);
-    if (!versionMetadata.downloads.server) throw Error("No download url found");
+    if (!versionMetadata.downloads.server)
+      throw new Error("No download url found");
 
     return versionMetadata.downloads.server.url;
   }
@@ -178,13 +179,13 @@ class VanillaSoftwareData implements Loader {
   async getJavaVersion(mcVersion: string) {
     const versionMetadata = await this.getVersionMetadata(mcVersion);
     if (!versionMetadata.javaVersion.majorVersion)
-      throw Error("No java version recommended");
+      throw new Error("No java version recommended");
 
     return versionMetadata.javaVersion.majorVersion;
   }
 
   getLoaderVersionsForMC(): string[] {
-    throw Error(
+    throw new Error(
       "This is a Loader without LoaderVersions and this function shouldn't have been called",
     );
   }
@@ -236,7 +237,7 @@ class FabricSoftwareData implements Loader {
   }
 
   private produceVersionLists() {
-    if (!this.manifest) throw Error("No metadata available");
+    if (!this.manifest) throw new Error("No metadata available");
     this.installerVersion = this.manifest.installer[0].version;
 
     this.mcVersions = this.manifest.game.map((v) => v.version);
@@ -246,7 +247,7 @@ class FabricSoftwareData implements Loader {
   }
 
   produceDownloadUrl(mcVersion: string, loaderVersion: string): string {
-    if (!this.installerVersion) throw Error("No metadata available");
+    if (!this.installerVersion) throw new Error("No metadata available");
     return this.downloadUrl
       .replaceAll("$mc", mcVersion)
       .replaceAll("$ld", loaderVersion)
@@ -254,7 +255,7 @@ class FabricSoftwareData implements Loader {
   }
 
   getLoaderVersionsForMC(): string[] {
-    throw Error(
+    throw new Error(
       "This Loader has independant version numbers and this function shouldn't have been called",
     );
   }
@@ -317,7 +318,7 @@ class PaperSoftwareData implements Loader {
     const buildMetadata = await response.json();
 
     if (!buildMetadata.downloads["server:default"])
-      throw Error("No download url found");
+      throw new Error("No download url found");
     return buildMetadata.downloads["server:default"].url;
   }
 }

@@ -9,7 +9,6 @@ import { JavaFinder } from "./lib/javas.ts";
 import { ServerCreationInfo, ServerManager } from "./lib/mcServerManager.ts";
 import { loaders } from "./lib/serverSoftwares.ts";
 import * as v from "@valibot/valibot";
-import { promissify } from "./lib/utils/promises.ts";
 import { HttpServer } from "./lib/server/httpWsServer.ts";
 import { HandlerManager } from "./lib/server/handlerManager.ts";
 import * as vars from "./lib/vars.ts";
@@ -79,6 +78,7 @@ if (import.meta.main) {
       options.respond({
         data: "welcome",
         servers: serverManager.listAllVisibleServers(user.uuid),
+        states: Object.fromEntries(serverManager.states),
       });
     },
     AuthSchema,
@@ -89,13 +89,13 @@ if (import.meta.main) {
     "create-server",
     (options) => {
       const info = options.data as ServerCreationInfo;
-      const promise = serverManager.createServer(info);
+      const promise = options.wrapPromise(serverManager.createServer(info));
       promise.then((mcServer) =>
         server.sendAllWS({ data: "add-new-server", server: mcServer }),
       );
 
       queueManager.scheduleTask({
-        title: "Creating server " + name,
+        title: `Creating server "${name}"`,
         type: "Server creation",
         description: `${info.software} ${info.software_version} for ${info.mc_version}`,
         promise,
@@ -114,7 +114,7 @@ if (import.meta.main) {
         throw "unknown: server";
       }
       const info = dbManager.getServer(uuid);
-      const promise = serverManager.startServer(uuid);
+      const promise = options.wrapPromise(serverManager.startServer(uuid));
 
       queueManager.scheduleTask({
         title: "Starting server " + info.name,
@@ -135,7 +135,7 @@ if (import.meta.main) {
         throw "unknown: server";
       }
       const info = dbManager.getServer(uuid);
-      const promise = promissify(() => {
+      const promise = options.wrapPromise(() => {
         serverManager.stopServer(uuid);
       });
 
@@ -158,7 +158,7 @@ if (import.meta.main) {
         throw "unknown: server";
       }
       const info = dbManager.getServer(uuid);
-      const promise = promissify(() => {
+      const promise = options.wrapPromise(() => {
         serverManager.deleteServer(uuid);
       });
       promise.then(() => server.sendAllWS({ data: "remove-server", uuid }));
@@ -183,6 +183,26 @@ if (import.meta.main) {
       });
     },
     v.object({}),
+  );
+
+  handleManager.addWebSocketHandler(
+    "subscribe-log",
+    (options) => {
+      const { uuid } = options.data;
+      serverManager.addServerListener(uuid, options.socket);
+
+      const history = serverManager.processes.get(uuid)?.history;
+      options.respond({ data: "log-history", uuid, history });
+    },
+    SimpleServerActionSchema,
+  );
+
+  handleManager.addWebSocketHandler(
+    "unsubscribe-log",
+    (options) => {
+      serverManager.removeServerListener(options.data.uuid, options.socket);
+    },
+    SimpleServerActionSchema,
   );
 
   handleManager.addWebSocketHandler(
@@ -225,6 +245,22 @@ if (import.meta.main) {
 
   log("StartUp", "Initialising MainServer...");
   const server = new HttpServer(handleManager, dbManager, {});
+
+  server.onSocketClose = (socket) => {
+    serverManager.removeServerListeners(socket);
+  };
+
+  serverManager.onServerCrash = (name) => {
+    queueManager.addNotification({
+      title: `Server "${name}" has crashed`,
+      subtitle: "See the latest log for trouble shooting",
+      isException: true,
+    });
+  };
+
+  serverManager.onStateChange = (uuid, state) => {
+    server.sendAllWS({ data: "state-change", uuid, state });
+  };
 
   queueManager.onQueueAdded = (task) => {
     server.sendAllWS({ data: "queue-new-task", task });

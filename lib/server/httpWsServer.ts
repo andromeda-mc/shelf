@@ -7,6 +7,8 @@ import {
   PermissionLevel,
   Permissions,
 } from "../dbManagement.ts";
+import { MaybePromise } from "../utils/type.ts";
+import { promissify } from "../utils/promises.ts";
 
 export function log(module: string, ...message: any[]) {
   const joinedMessage = message
@@ -36,6 +38,8 @@ export class HttpServer {
   options: ServerOptions;
 
   private userMap = new Map<WebSocket, string>();
+
+  onSocketClose: undefined | ((socket: WebSocket) => void);
 
   constructor(
     handlerManager: HandlerManager,
@@ -74,6 +78,7 @@ export class HttpServer {
 
         socket.addEventListener("open", () => {
           log("WS", hostname, "Open");
+          this.onSocketClose?.(socket);
         });
 
         socket.addEventListener("close", () => {
@@ -222,6 +227,7 @@ export class HttpServer {
       }
 
       options.userUUID = userUUID;
+      options.socket = socket;
 
       for (const flag of entry.flags) {
         // @ts-ignore we're checking if it is a Permission
@@ -269,15 +275,29 @@ export class HttpServer {
         this.userMap.set(socket, userUUID);
       };
 
-      try {
-        entry.handler(options);
-      } catch (err) {
+      const handleError = (err: unknown) => {
         if (typeof err === "string") {
           error(err);
         } else {
           error("failed: execution");
           log("WS", `Error in handler '${command}': ${err}`);
+          if ((err as any).stack) console.error((err as Error).stack);
         }
+      };
+
+      options.wrapPromise = (fn: MaybePromise<any>) => {
+        if (!(fn instanceof Promise)) {
+          fn = promissify(fn);
+        }
+
+        (fn as Promise<any>).catch((err) => handleError(err));
+        return fn;
+      };
+
+      try {
+        entry.handler(options);
+      } catch (err) {
+        handleError(err);
       }
     } catch (err) {
       this.errorWS(socket, "invalid: msg");

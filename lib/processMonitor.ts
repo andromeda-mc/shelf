@@ -20,6 +20,7 @@ export class ProcessMonitor {
       stderr: "piped",
       env: {
         TERM: "xterm-256color",
+        LANG: "C.utf8"
       },
     }).spawn();
 

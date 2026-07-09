@@ -141,9 +141,7 @@ export class JavaFinder {
     const majorJavaVersion = await Vanilla.getJavaVersion(mcVersion);
 
     if (!(majorJavaVersion in this._preferedJavas)) {
-      throw new Error(
-        `No Java ${majorJavaVersion} runtime found. Minimal runtimes are not supported.`,
-      );
+      throw "no java: " + majorJavaVersion;
     }
 
     return this._preferedJavas[majorJavaVersion];
