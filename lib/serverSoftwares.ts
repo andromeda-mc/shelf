@@ -24,12 +24,17 @@ interface Loader {
   wantsToBeInstalled: boolean;
   installArgs?: string[];
 
+  /** Some servers just crash when Ctrl+C'ed. Specify a custom input like "stop" here */
+  customTerminate?: string;
+
   produceDownloadUrl(
     mcVersion: string,
     loaderVersion?: string,
   ): MaybePromise<string>;
   getLoaderVersionsForMC(mcVersion: string): MaybePromise<string[]>;
 }
+
+const stopTerminate = "\nstop\n";
 
 class MultiMCSoftwareData implements Loader {
   private uid: string;
@@ -136,6 +141,8 @@ class VanillaSoftwareData implements Loader {
   hasLoaderVersions = false;
   wantsToBeInstalled = false;
 
+  customTerminate = stopTerminate;
+
   constructor() {
     fetch("https://launchermeta.mojang.com/mc/game/version_manifest.json").then(
       (resp) =>
@@ -217,6 +224,8 @@ class FabricSoftwareData implements Loader {
   hasLoaderVersions = true;
   wantsToBeInstalled: boolean;
   installArgs: string[] | undefined;
+
+  customTerminate = stopTerminate;
 
   constructor(
     metaUrl: string,

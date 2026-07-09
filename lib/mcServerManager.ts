@@ -3,7 +3,7 @@ import type { DatabaseManagement, PermissionLevel } from "./dbManagement.ts";
 import { JavaFinder } from "./javas.ts";
 import { loaders, ServerSoftwares } from "./serverSoftwares.ts";
 import { existsSync } from "@std/fs";
-import { ProcessMonitor } from "./processMonitor.ts";
+import { ProcessConfig, ProcessMonitor } from "./processMonitor.ts";
 
 const installerTempPath = "/tmp/andromeda-stall2-installer.jar";
 
@@ -197,11 +197,14 @@ export class ServerManager {
       ...serverMetadata.launchOptions,
     ];
 
-    const watcher = new ProcessMonitor(
-      javaBin,
+    const config: ProcessConfig = {
+      bin: javaBin,
       args,
-      this.dbManager.getInstancePath(uuid),
-    );
+      cwd: this.dbManager.getInstancePath(uuid),
+      customTerminate: loaders[serverMetadata.software].customTerminate,
+    };
+
+    const watcher = new ProcessMonitor(config);
 
     watcher.addListener((output) => {
       const msg = JSON.stringify({ data: "live-log", uuid, output });

@@ -2,25 +2,36 @@ import { log } from "./server/httpWsServer.ts";
 
 type Listener = (output: string) => void;
 
+export interface ProcessConfig {
+  bin: string;
+  args?: string[];
+  cwd?: string;
+
+  customTerminate?: string;
+}
+
 export class ProcessMonitor {
   private listeners = new Set<Listener>();
   private encoder = new TextEncoder();
   private stdin;
   history = "";
   process;
+  customTerminate;
 
-  constructor(bin: string, javaArgs?: string[], cwd?: string) {
-    const args = [bin, javaArgs?.join(" ")];
+  constructor(config: ProcessConfig) {
+    this.customTerminate = config.customTerminate;
+
+    const args = [config.bin, config.args?.join(" ")];
 
     this.process = new Deno.Command("script", {
       args: ["-qec", args.join(" ")].filter(Boolean),
-      cwd,
+      cwd: config.cwd,
       stdin: "piped",
       stdout: "piped",
       stderr: "piped",
       env: {
         TERM: "xterm-256color",
-        LANG: "C.utf8"
+        LANG: "C.utf8",
       },
     }).spawn();
 
@@ -83,7 +94,12 @@ export class ProcessMonitor {
 
   terminate() {
     this.handleNewOutput("*** stop requested ***");
-    this.killSignal("SIGINT");
+
+    if (this.customTerminate) {
+      this.write(this.customTerminate);
+    } else {
+      this.killSignal("SIGINT");
+    }
   }
 
   kill() {
