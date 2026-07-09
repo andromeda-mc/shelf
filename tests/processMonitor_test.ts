@@ -3,7 +3,7 @@ import { ProcessMonitor } from "../lib/processMonitor.ts";
 import { delay } from "@std/async";
 
 Deno.test(async function testOutputCapturing() {
-  const watcher = new ProcessMonitor("cat");
+  const watcher = new ProcessMonitor({ bin: "cat" });
 
   watcher.write("Hello world\n");
 
