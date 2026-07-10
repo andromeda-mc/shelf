@@ -182,6 +182,13 @@ export class ServerManager {
 
       this.listeners.get(uuid)!.forEach((socket) => socket.send(msg));
 
+      if (output.includes("This crash report has been saved to")) {
+        const server = this.dbManager.getServer(uuid);
+        this.onServerCrash?.(server.name);
+        this.states.set(uuid, ServerStates.Stopped);
+        return;
+      }
+
       if (output.includes("Stopping server")) {
         this.states.set(uuid, ServerStates.Stopping);
         this.onStateChange?.(uuid, ServerStates.Stopping);
@@ -197,10 +204,14 @@ export class ServerManager {
     this.processes.set(uuid, watcher);
 
     watcher.process.status.then((v) => {
+      const prevState = this.states.get(uuid);
       this.states.set(uuid, ServerStates.Stopped);
       this.onStateChange?.(uuid, ServerStates.Stopped);
 
-      if (!v.success) this.onServerCrash?.(serverMetadata.name);
+      // The other crash detector sets the state to stopped.
+      // If the server is already stopped (e.g. due to a crash) no second crash will be reported
+      if (!v.success && prevState !== ServerStates.Stopped)
+        this.onServerCrash?.(serverMetadata.name);
     });
   }
 
