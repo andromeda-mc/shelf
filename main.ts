@@ -199,6 +199,7 @@ if (import.meta.main) {
       options.respond({ data: "log-history", uuid, history });
     },
     SimpleServerActionSchema,
+    Permissions.ReadConsole,
   );
 
   handleManager.addWebSocketHandler(
@@ -207,6 +208,7 @@ if (import.meta.main) {
       serverManager.removeServerListener(options.data.uuid, options.socket);
     },
     SimpleServerActionSchema,
+    Permissions.ReadConsole,
   );
 
   handleManager.addWebSocketHandler(
@@ -231,6 +233,78 @@ if (import.meta.main) {
     },
     SimpleServerActionSchema,
     Permissions.ManageNotifications,
+  );
+
+  handleManager.addWebSocketHandler(
+    "read-whitelist",
+    (options) => {
+      const { uuid } = options.data;
+
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
+      return options.respond({
+        data: "server-config",
+        uuid,
+        whitelist: settingsManager.getWhitelist(uuid),
+      });
+    },
+    SimpleServerActionSchema,
+    Permissions.ReadWhitelist,
+  );
+
+  handleManager.addWebSocketHandler(
+    "read-bans",
+    (options) => {
+      const { uuid } = options.data;
+
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
+      return options.respond({
+        data: "server-config",
+        uuid,
+        bans: settingsManager.getBans(uuid),
+      });
+    },
+    SimpleServerActionSchema,
+    Permissions.ReadBans,
+  );
+
+  handleManager.addWebSocketHandler(
+    "read-ops",
+    (options) => {
+      const { uuid } = options.data;
+
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
+      return options.respond({
+        data: "server-config",
+        uuid,
+        ops: settingsManager.getOps(uuid),
+      });
+    },
+    SimpleServerActionSchema,
+    Permissions.ReadOps,
+  );
+
+  handleManager.addWebSocketHandler(
+    "read-properties",
+    (options) => {
+      const { uuid } = options.data;
+
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
+      return options.respond({
+        data: "server-config",
+        uuid,
+        properties: settingsManager.getProperties(uuid),
+      });
+    },
+    SimpleServerActionSchema,
+    Permissions.ReadProperties,
   );
 
   handleManager.addHttpPostHandler("icon", (options) => {

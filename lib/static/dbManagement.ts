@@ -28,6 +28,11 @@ export enum Permissions {
 
   ReadConsole = "read-console",
 
+  ReadWhitelist = "read-whitelist",
+  ReadBans = "read-bans",
+  ReadOps = "read-ops",
+  ReadProperties = "read-properties",
+
   WhitelistPlayer = "create-whitelist",
   UnwhitelistPlayer = "remove-whitelist",
 

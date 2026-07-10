@@ -24,6 +24,10 @@ const defaultPermissions = Object.fromEntries(
 
 defaultPermissions[Permissions.StartServer] = true;
 defaultPermissions[Permissions.ReadConsole] = true;
+defaultPermissions[Permissions.ReadWhitelist] = true;
+defaultPermissions[Permissions.ReadBans] = true;
+defaultPermissions[Permissions.ReadOps] = true;
+defaultPermissions[Permissions.ReadProperties] = true;
 
 interface UserData {
   uuid: string;
