@@ -3,30 +3,20 @@ import { generate as generateUUID } from "@std/uuid/v7";
 import { hash, verify } from "@bronti/argon2";
 import { join } from "@std/path";
 import { existsSync } from "@std/fs";
-import { ServerCreationInfo, ServerSettings } from "./mcServerManager.ts";
+import {
+  ServerCreationInfo,
+  ServerSettings,
+} from "./static/mcServerManager.ts";
 import * as v from "@valibot/valibot";
 import * as vars from "./vars.ts";
-
-const rootPath = join(Deno.env.get("HOME") ?? "home", ".var/andromeda/stall2");
-const globalDBPath = join(rootPath, "global-db.json");
-const instancesPath = join(rootPath, "instances");
-const iconRootPath = existsSync("icons") ? "icons" : join(rootPath, "icons");
-
-export enum PermissionLevel {
-  Visitor,
-  User,
-  Admin,
-}
-
-export enum Permissions {
-  CreateServer = "create-server",
-  StartServer = "start-server",
-  StopServer = "stop-server",
-  KillServer = "kill-server",
-  DeleteServer = "delete-server",
-
-  ManageNotifications = "manage-notifications",
-}
+import {
+  Permissions,
+  PermissionLevel,
+  rootPath,
+  globalDBPath,
+  instancesPath,
+  iconRootPath,
+} from "./static/dbManager.ts";
 
 const defaultPermissions: Record<Permissions, boolean> = {
   "create-server": false,

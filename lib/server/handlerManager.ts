@@ -1,5 +1,5 @@
 // deno-lint-ignore-file ban-types no-explicit-any
-import { PermissionLevel, Permissions } from "../dbManagement.ts";
+import { PermissionLevel, Permissions } from "../static/dbManager.ts";
 import { MaybePromise } from "../utils/type.ts";
 import type { MessageData } from "./httpWsServer.ts";
 import * as v from "@valibot/valibot";

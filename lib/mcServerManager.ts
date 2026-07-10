@@ -1,45 +1,16 @@
 import { join } from "@std/path";
-import type { DatabaseManagement, PermissionLevel } from "./dbManagement.ts";
+import type { DatabaseManagement } from "./dbManagement.ts";
 import { JavaFinder } from "./javas.ts";
-import { loaders, ServerSoftwares } from "./serverSoftwares.ts";
+import { loaders } from "./serverSoftwares.ts";
 import { existsSync } from "@std/fs";
-import { ProcessConfig, ProcessMonitor } from "./processMonitor.ts";
+import { type ProcessConfig, ProcessMonitor } from "./processMonitor.ts";
+import {
+  ServerStates,
+  ServerCreationInfo,
+  ServerSettings,
+} from "./static/mcServerManager.ts";
 
 const installerTempPath = "/tmp/andromeda-stall2-installer.jar";
-
-export interface ServerSettings {
-  name: string; // user generated
-  description: string; // user generated
-  uuid: string;
-
-  software: ServerSoftwares;
-  software_version?: string;
-  mc_version: string;
-
-  launchOptions: string[];
-  autostart: boolean;
-  autorestart: boolean;
-  maxMemory: number;
-  icon: string; // Either specified icon library or path to user uploaded image
-  creationDate: string; // ISO
-
-  visibilityLevel: PermissionLevel; // Minimum Permission Level to see this server
-  userWhitelist: string[]; // Additional allowed user UUIDs
-}
-
-export interface ServerCreationInfo {
-  name: string;
-  software: ServerSoftwares;
-  software_version?: string;
-  mc_version: string;
-}
-
-export enum ServerStates {
-  Stopped = "stopped",
-  Starting = "starting",
-  Running = "running",
-  Stopping = "stopping",
-}
 
 export class ServerManager {
   private dbManager;

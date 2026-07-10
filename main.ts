@@ -1,12 +1,10 @@
 import { log } from "./lib/server/httpWsServer.ts";
-import {
-  DatabaseManagement,
-  PermissionLevel,
-  Permissions,
-} from "./lib/dbManagement.ts";
+import { DatabaseManagement } from "./lib/dbManagement.ts";
+import { Permissions, PermissionLevel } from "./lib/static/dbManager.ts";
 import { QueueManager } from "./lib/queueManager.ts";
 import { JavaFinder } from "./lib/javas.ts";
-import { ServerCreationInfo, ServerManager } from "./lib/mcServerManager.ts";
+import { ServerManager } from "./lib/mcServerManager.ts";
+import { ServerCreationInfo } from "./lib/static/mcServerManager.ts";
 import { loaders } from "./lib/serverSoftwares.ts";
 import * as v from "@valibot/valibot";
 import { HttpServer } from "./lib/server/httpWsServer.ts";
@@ -14,6 +12,7 @@ import { HandlerManager } from "./lib/server/handlerManager.ts";
 import * as vars from "./lib/vars.ts";
 import { existsSync } from "@std/fs";
 import { omit } from "./lib/utils/objects.ts";
+import { SettingsManager } from "./lib/settingsManager.ts";
 
 const AuthSchema = v.object({
   username: v.string(),
@@ -244,6 +243,9 @@ if (import.meta.main) {
     });
   });
 
+  log("StartUp", "Initialising SettingsManager...");
+  const settingsManager = new SettingsManager(serverManager);
+
   log("StartUp", "Initialising MainServer...");
   const server = new HttpServer(handleManager, dbManager, {});
 
@@ -281,8 +283,11 @@ if (import.meta.main) {
 
   Deno.addSignalListener("SIGINT", () => {
     log("Terminate", "Interrupt received");
-    log("HTTP/WS", "Terminating server...");
+    log("Terminate", "Terminating server...");
     server.ac.abort();
+
+    log("Terminate", "Terminating SettingsManager...");
+    settingsManager.watcher.close();
   });
 
   server.onServerClose = () => {

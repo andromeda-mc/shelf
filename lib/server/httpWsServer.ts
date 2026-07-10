@@ -4,9 +4,11 @@ import { HandlerManager } from "./handlerManager.ts";
 import { safeParse } from "@valibot/valibot";
 import {
   DatabaseManagement,
-  PermissionLevel,
-  Permissions,
 } from "../dbManagement.ts";
+import {
+  PermissionLevel,
+  Permissions
+} from "../static/dbManager.ts";
 import { MaybePromise } from "../utils/type.ts";
 import { promissify } from "../utils/promises.ts";
 
