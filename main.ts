@@ -282,6 +282,7 @@ if (import.meta.main) {
   };
 
   Deno.addSignalListener("SIGINT", () => {
+    console.log();
     log("Terminate", "Interrupt received");
     log("Terminate", "Terminating server...");
     server.ac.abort();

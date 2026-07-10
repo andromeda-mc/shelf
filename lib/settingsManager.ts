@@ -96,10 +96,11 @@ export class SettingsManager {
   }
 
   private updateAllServers() {
+    log("SettingsManager", "Updating all servers. This could clog the logs");
+
     for (const server of Deno.readDirSync(instancesPath)) {
       if (!server.isDirectory) continue;
       const uuid = server.name;
-      log("SettingsManager", `Updating Server UUID "${uuid}"`);
 
       this.updateWhitelist(uuid);
       this.updateOps(uuid);
@@ -162,6 +163,8 @@ export class SettingsManager {
   // Whitelist / whitelist.json
 
   private updateWhitelist(serverUUID: string) {
+    log("SettingsManager", `Updating whitelist of Server UUID "${serverUUID}"`);
+
     const whitelistPath = this.getPath(serverUUID, whitelistFile);
     if (!whitelistPath) {
       this._whitelists.set(serverUUID, []);
@@ -215,6 +218,8 @@ export class SettingsManager {
   // Ops / ops.json
 
   private updateOps(serverUUID: string) {
+    log("SettingsManager", `Updating ops of Server UUID "${serverUUID}"`);
+
     const opsPath = this.getPath(serverUUID, opsFile);
     if (!opsPath) {
       this._ops.set(serverUUID, []);
@@ -281,6 +286,8 @@ export class SettingsManager {
   // Bans / banned-players.json
 
   private updateBans(serverUUID: string) {
+    log("SettingsManager", `Updating bans of Server UUID "${serverUUID}"`);
+
     const bansPath = this.getPath(serverUUID, bansFile);
     if (!bansPath) {
       this._bans.set(serverUUID, []);
@@ -339,6 +346,11 @@ export class SettingsManager {
   // Properties / server.properties
 
   private updateProperties(serverUUID: string) {
+    log(
+      "SettingsManager",
+      `Updating properties of Server UUID "${serverUUID}"`,
+    );
+
     const propertiesPath = this.getPath(serverUUID, propertiesFile);
     if (!propertiesPath) {
       this._properties.delete(serverUUID);
