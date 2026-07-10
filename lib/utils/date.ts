@@ -1,7 +1,6 @@
 import { format } from "@std/datetime";
-import { sprintf } from "@std/fmt/printf";
 
-export function getMojDate(date: Date): string {
+export function convToMojDate(date: Date): string {
   let string = format(date, "yyyy-MM-dd HH:mm:ss ");
 
   if (date.getTimezoneOffset() < 0) {
@@ -14,7 +13,8 @@ export function getMojDate(date: Date): string {
   const hour = Math.floor(offset / 60);
   const minute = offset % 60;
 
-  string += sprintf("%02d%02d", hour, minute);
+  string +=
+    hour.toString().padStart(2, "0") + minute.toString().padStart(2, "0");
   return string;
 }
 

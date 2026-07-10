@@ -18,7 +18,7 @@ import {
   iconRootPath,
 } from "./static/dbManagement.ts";
 
-const defaultPermissions = Object.fromEntries(
+export const defaultPermissions = Object.fromEntries(
   Object.values(Permissions).map((p) => [p, false]),
 ) as Record<Permissions, boolean>;
 

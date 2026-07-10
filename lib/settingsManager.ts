@@ -4,7 +4,7 @@ import { basename, join, relative } from "@std/path";
 import { type ServerManager } from "./mcServerManager.ts";
 import { ServerStates } from "./static/mcServerManager.ts";
 import { getUUID } from "./minecraftApi.ts";
-import { getMojDate, parseMojDate } from "./utils/date.ts";
+import { convToMojDate, parseMojDate } from "./utils/date.ts";
 import { log } from "./server/httpWsServer.ts";
 
 type PropertyTypes = string | number | boolean | null;
@@ -338,7 +338,7 @@ export class SettingsManager {
     } else {
       const bans = this.getBans(serverUUID);
 
-      const created = getMojDate(new Date());
+      const created = convToMojDate(new Date());
       bans.push({
         ...entry,
         expires: "forever",
