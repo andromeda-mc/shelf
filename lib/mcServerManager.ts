@@ -282,4 +282,12 @@ export class ServerManager {
   removeServerListeners(socket: WebSocket) {
     this.listeners.values().forEach((set) => set.delete(socket));
   }
+
+  write(serverUUID: string, text: string) {
+    if (this.states.get(serverUUID) === ServerStates.Stopped) {
+      throw "server: is stopped";
+    }
+
+    this.processes.get(serverUUID)!.write(text);
+  }
 }
