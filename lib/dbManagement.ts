@@ -16,16 +16,14 @@ import {
   globalDBPath,
   instancesPath,
   iconRootPath,
-} from "./static/dbManager.ts";
+} from "./static/dbManagement.ts";
 
-const defaultPermissions: Record<Permissions, boolean> = {
-  "create-server": false,
-  "start-server": true,
-  "stop-server": false,
-  "kill-server": false,
-  "delete-server": false,
-  "manage-notifications": false,
-};
+const defaultPermissions = Object.fromEntries(
+  Object.values(Permissions).map((p) => [p, false]),
+) as Record<Permissions, boolean>;
+
+defaultPermissions[Permissions.StartServer] = true;
+defaultPermissions[Permissions.ReadConsole] = true;
 
 interface UserData {
   uuid: string;

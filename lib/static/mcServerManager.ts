@@ -1,5 +1,5 @@
 import type { ServerSoftwares } from "../serverSoftwares.ts";
-import type { PermissionLevel } from "./dbManager.ts";
+import type { PermissionLevel } from "./dbManagement.ts";
 
 export interface ServerSettings {
   name: string; // user generated

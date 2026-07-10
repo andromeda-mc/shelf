@@ -2,13 +2,8 @@
 import { format } from "@std/datetime";
 import { HandlerManager } from "./handlerManager.ts";
 import { safeParse } from "@valibot/valibot";
-import {
-  DatabaseManagement,
-} from "../dbManagement.ts";
-import {
-  PermissionLevel,
-  Permissions
-} from "../static/dbManager.ts";
+import { DatabaseManagement } from "../dbManagement.ts";
+import { PermissionLevel, Permissions } from "../static/dbManagement.ts";
 import { MaybePromise } from "../utils/type.ts";
 import { promissify } from "../utils/promises.ts";
 

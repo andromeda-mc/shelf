@@ -1,6 +1,6 @@
 import { log } from "./lib/server/httpWsServer.ts";
 import { DatabaseManagement } from "./lib/dbManagement.ts";
-import { Permissions, PermissionLevel } from "./lib/static/dbManager.ts";
+import { Permissions, PermissionLevel } from "./lib/static/dbManagement.ts";
 import { QueueManager } from "./lib/queueManager.ts";
 import { JavaFinder } from "./lib/javas.ts";
 import { ServerManager } from "./lib/mcServerManager.ts";
@@ -74,11 +74,15 @@ if (import.meta.main) {
       );
       if (!success) throw "auth: failed";
 
+      if (user.locked) throw "auth: locked";
+
       options.authConnection(user.uuid);
+
       options.respond({
         data: "welcome",
         servers: serverManager.listAllVisibleServers(user.uuid),
         states: Object.fromEntries(serverManager.states),
+        you: omit(user, "loginHash"),
       });
     },
     AuthSchema,

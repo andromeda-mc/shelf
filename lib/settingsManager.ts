@@ -1,5 +1,5 @@
 import { existsSync } from "@std/fs";
-import { instancesPath } from "./static/dbManager.ts";
+import { instancesPath } from "./static/dbManagement.ts";
 import { basename, join, relative } from "@std/path";
 import { type ServerManager } from "./mcServerManager.ts";
 import { ServerStates } from "./static/mcServerManager.ts";
