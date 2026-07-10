@@ -143,7 +143,7 @@ export class SettingsManager {
 
       if (
         !settingFiles.includes(filename) ||
-        event.kind !== "modify" ||
+        event.kind !== "access" ||
         !path.startsWith(instancesPath)
       ) {
         return;
@@ -191,9 +191,14 @@ export class SettingsManager {
       return;
     }
 
-    const content = Deno.readTextFileSync(whitelistPath);
-    const whitelist: Whitelist[] = JSON.parse(content);
-    this._whitelists.set(serverUUID, whitelist);
+    try {
+      const content = Deno.readTextFileSync(whitelistPath);
+      const whitelist: Whitelist[] = JSON.parse(content);
+      this._whitelists.set(serverUUID, whitelist);
+    } catch {
+      log("SettingsManager", "Invalid Whitelist read");
+      this._whitelists.set(serverUUID, []);
+    }
   }
 
   private saveWhitelist(serverUUID: string) {
@@ -247,9 +252,14 @@ export class SettingsManager {
       return;
     }
 
-    const content = Deno.readTextFileSync(opsPath);
-    const ops: Ops[] = JSON.parse(content);
-    this._ops.set(serverUUID, ops);
+    try {
+      const content = Deno.readTextFileSync(opsPath);
+      const ops: Ops[] = JSON.parse(content);
+      this._ops.set(serverUUID, ops);
+    } catch {
+      log("SettingsManager", "Invalid Ops read");
+      this._ops.set(serverUUID, []);
+    }
   }
 
   private saveOps(serverUUID: string) {
@@ -316,9 +326,14 @@ export class SettingsManager {
       return;
     }
 
-    const content = Deno.readTextFileSync(bansPath);
-    const bans: Bans[] = JSON.parse(content);
-    this._bans.set(serverUUID, bans);
+    try {
+      const content = Deno.readTextFileSync(bansPath);
+      const bans: Bans[] = JSON.parse(content);
+      this._bans.set(serverUUID, bans);
+    } catch {
+      log("SettingsManager", "Invalid Bans read");
+      this._bans.set(serverUUID, []);
+    }
   }
 
   private saveBans(serverUUID: string) {
@@ -379,17 +394,22 @@ export class SettingsManager {
       this._properties.delete(serverUUID);
       throw "not ready: server.properties";
     }
-    const content = Deno.readTextFileSync(propertiesPath);
 
-    const entries: [string, PropertyTypes][] = content
-      .split("\n")
-      .filter((line) => line.includes("=") && !line.startsWith("#"))
-      .map((line) => line.split("=", 2))
-      .map(([key, value]) => [key, parseProperty(value)]);
-    const properties = Object.fromEntries(entries);
+    try {
+      const content = Deno.readTextFileSync(propertiesPath);
 
-    this._properties.set(serverUUID, properties);
-    this.savePropertiesFile(serverUUID);
+      const entries: [string, PropertyTypes][] = content
+        .split("\n")
+        .filter((line) => line.includes("=") && !line.startsWith("#"))
+        .map((line) => line.split("=", 2))
+        .map(([key, value]) => [key, parseProperty(value)]);
+      const properties = Object.fromEntries(entries);
+
+      this._properties.set(serverUUID, properties);
+    } catch {
+      log("SettingsManager", "Invalid Properties read");
+      this._properties.set(serverUUID, {});
+    }
   }
 
   private savePropertiesFile(serverUUID: string) {
@@ -412,5 +432,6 @@ export class SettingsManager {
     const result = Object.assign(properties, newProperties);
 
     this._properties.set(serverUUID, result);
+    this.savePropertiesFile(serverUUID);
   }
 }
