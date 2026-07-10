@@ -21,10 +21,10 @@ export class ProcessMonitor {
   constructor(config: ProcessConfig) {
     this.customTerminate = config.customTerminate;
 
-    const args = [config.bin, config.args?.join(" ")];
+    const args = [config.bin, config.args?.join(" ")].join(" ").trim();
 
-    this.process = new Deno.Command("script", {
-      args: ["-qec", args.join(" ")].filter(Boolean),
+    this.process = Deno.spawn("script", {
+      args: ["-O", "/dev/null", "-qec", args],
       cwd: config.cwd,
       stdin: "piped",
       stdout: "piped",
@@ -33,11 +33,11 @@ export class ProcessMonitor {
         TERM: "xterm-256color",
         LANG: "C.utf8",
       },
-    }).spawn();
+    });
 
     log(
       "ProcessMonitor",
-      `Starting process ${this.process.pid}: "script -qec ${args?.join(" ")}"`,
+      `Starting process ${this.process.pid}: "script -O /dev/null -qec ${args}"`,
     );
 
     const createHandler = () =>

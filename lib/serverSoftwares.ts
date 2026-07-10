@@ -76,7 +76,6 @@ class MultiMCSoftwareData implements Loader {
     ];
 
     for (const version of this.mcVersions) {
-      // FIXME: NeoForge does not create a recommended list
       this.loaderVersions[version] = this.metadata.versions
         .filter((v) => v.requires!.some((r) => r.equals === version))
         .map((v) => v.version);
