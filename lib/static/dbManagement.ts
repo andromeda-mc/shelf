@@ -27,6 +27,7 @@ export enum Permissions {
   ManageNotifications = "manage-notifications",
 
   ReadConsole = "read-console",
+  WriteConsole = "write-console",
 
   ReadWhitelist = "read-whitelist",
   ReadBans = "read-bans",

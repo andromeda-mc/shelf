@@ -33,6 +33,11 @@ const SimpleServerActionSchema = v.object({
   uuid: v.pipe(v.string(), v.uuid()),
 });
 
+const WriteSchema = v.object({
+  content: v.pipe(v.string(), v.nonEmpty()),
+  uuid: v.pipe(v.string(), v.uuid()),
+});
+
 if (import.meta.main) {
   log("StartUp", "Initialising DatabaseManager...");
   const dbManager = new DatabaseManagement();
@@ -99,7 +104,7 @@ if (import.meta.main) {
       );
 
       queueManager.scheduleTask({
-        title: `Creating server "${name}"`,
+        title: `Creating server "${info.name}"`,
         type: "Server creation",
         description: `${info.software} ${info.software_version} for ${info.mc_version}`,
         promise,
@@ -193,6 +198,9 @@ if (import.meta.main) {
     "subscribe-log",
     (options) => {
       const { uuid } = options.data;
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
       serverManager.addServerListener(uuid, options.socket);
 
       const history = serverManager.processes.get(uuid)?.history;
@@ -205,10 +213,27 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "unsubscribe-log",
     (options) => {
-      serverManager.removeServerListener(options.data.uuid, options.socket);
+      const { uuid } = options.data;
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
+      serverManager.removeServerListener(uuid, options.socket);
     },
     SimpleServerActionSchema,
     Permissions.ReadConsole,
+  );
+
+  handleManager.addWebSocketHandler(
+    "write",
+    (options) => {
+      const { uuid } = options.data;
+      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+        throw "unknown: server";
+      }
+      serverManager.write(uuid, options.data.content);
+    },
+    WriteSchema,
+    Permissions.WriteConsole,
   );
 
   handleManager.addWebSocketHandler(
