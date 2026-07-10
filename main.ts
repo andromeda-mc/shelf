@@ -264,7 +264,7 @@ if (import.meta.main) {
       return options.respond({
         data: "server-config",
         uuid,
-        bans: settingsManager.getBans(uuid),
+        bans: settingsManager.getNormalizedBans(uuid),
       });
     },
     SimpleServerActionSchema,

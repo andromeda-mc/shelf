@@ -17,3 +17,7 @@ export function getMojDate(date: Date): string {
   string += sprintf("%02d%02d", hour, minute);
   return string;
 }
+
+export function parseMojDate(input: string): Date {
+  return new Date(input);
+}

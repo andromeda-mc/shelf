@@ -4,7 +4,7 @@ import { basename, join, relative } from "@std/path";
 import { type ServerManager } from "./mcServerManager.ts";
 import { ServerStates } from "./static/mcServerManager.ts";
 import { getUUID } from "./minecraftApi.ts";
-import { getMojDate } from "./utils/date.ts";
+import { getMojDate, parseMojDate } from "./utils/date.ts";
 import { log } from "./server/httpWsServer.ts";
 
 type PropertyTypes = string | number | boolean | null;
@@ -20,6 +20,10 @@ interface Bans extends Whitelist {
   source: string;
   expires: "forever";
   reason?: string;
+}
+
+interface NormalBans extends Omit<Bans, "created"> {
+  created: Date;
 }
 
 interface OpSettings {
@@ -73,6 +77,14 @@ export class SettingsManager {
 
   getBans(serverUUID: string) {
     return this._bans.get(serverUUID) ?? [];
+  }
+
+  getNormalizedBans(serverUUID: string) {
+    return this.getBans(serverUUID).map((ban) => {
+      // @ts-ignore We're converting the type here
+      ban.created = parseMojDate(ban.created);
+      return ban;
+    }) as unknown as NormalBans[];
   }
 
   getProperties(serverUUID: string) {
@@ -377,6 +389,7 @@ export class SettingsManager {
     const properties = Object.fromEntries(entries);
 
     this._properties.set(serverUUID, properties);
+    this.savePropertiesFile(serverUUID);
   }
 
   private savePropertiesFile(serverUUID: string) {
