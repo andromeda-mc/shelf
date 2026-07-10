@@ -194,11 +194,12 @@ export class SettingsManager {
 
   async addToWhitelist(serverUUID: string, playerName: string) {
     const entry = await getUUID(playerName);
-    const whitelist = this.getWhitelist(serverUUID);
 
     if (this.serverManager.states.get(serverUUID) === ServerStates.Running) {
       this.serverManager.write(serverUUID, `\nwhitelist add ${entry.name}\n`);
     } else {
+      const whitelist = this.getWhitelist(serverUUID);
+
       whitelist.push(entry);
 
       this.saveWhitelist(serverUUID);
@@ -249,11 +250,12 @@ export class SettingsManager {
 
   async addToOps(serverUUID: string, playerName: string) {
     const entry = await getUUID(playerName);
-    const ops = this.getOps(serverUUID);
 
     if (this.serverManager.states.get(serverUUID) === ServerStates.Running) {
       this.serverManager.write(serverUUID, `\nop ${entry.name}\n`);
     } else {
+      const ops = this.getOps(serverUUID);
+
       ops.push({ ...entry, bypassesPlayerLimit: false, level: 4 });
 
       this.saveOps(serverUUID);
@@ -317,12 +319,13 @@ export class SettingsManager {
 
   async banPlayer(serverUUID: string, playerName: string, reason?: string) {
     const entry = await getUUID(playerName);
-    const bans = this.getBans(serverUUID);
 
     if (this.serverManager.states.get(serverUUID) === ServerStates.Running) {
       const command = `ban ${entry.name} ${reason}`.trim();
       this.serverManager.write(serverUUID, `\n${command}\n`);
     } else {
+      const bans = this.getBans(serverUUID);
+
       const created = getMojDate(new Date());
       bans.push({
         ...entry,
