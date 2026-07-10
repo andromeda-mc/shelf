@@ -37,9 +37,12 @@ export class HttpServer {
   dbManager: DatabaseManagement;
   options: ServerOptions;
 
+  ac = new AbortController();
+
   private userMap = new Map<WebSocket, string>();
 
   onSocketClose: undefined | ((socket: WebSocket) => void);
+  onServerClose: undefined | (() => void);
 
   constructor(
     handlerManager: HandlerManager,
@@ -52,12 +55,13 @@ export class HttpServer {
   }
 
   serve() {
-    Deno.serve(
+    const server = Deno.serve(
       {
         ...this.options,
         onListen({ hostname, port }) {
           log("HTTP/WS", `Andromeda Shelf listens on ws://${hostname}:${port}`);
         },
+        signal: this.ac.signal,
       },
       (req, conInfo) => {
         let hostname = "dummy";
@@ -94,6 +98,8 @@ export class HttpServer {
         return response;
       },
     );
+
+    server.finished.then(this.onServerClose);
   }
 
   protected async handleHttpPostRequest(req: Request): Promise<Response> {

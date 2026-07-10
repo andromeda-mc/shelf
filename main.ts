@@ -24,7 +24,7 @@ const CreateServerSchema = v.object({
   name: v.string(),
   software: v.pipe(
     v.string(),
-    v.check((item) => item in loaders),
+    v.check((item) => item in loaders, "Unknown server software"),
   ),
   mc_version: v.string(),
   software_version: v.undefinedable(v.string()),
@@ -277,6 +277,18 @@ if (import.meta.main) {
   };
   queueManager.onNotificationRemoved = (notificationUUID) => {
     server.sendAllWS({ data: "queue-remove-notification", notificationUUID });
+  };
+
+  Deno.addSignalListener("SIGINT", () => {
+    log("Terminate", "Interrupt received");
+    log("HTTP/WS", "Terminating server...");
+    server.ac.abort();
+  });
+
+  server.onServerClose = () => {
+    log("HTTP/WS", "Server has terminated");
+
+    log("Terminate", "Goodbye! Thank you for using Andromeda");
   };
 
   log("StartUp", "Starting MainServer...");
