@@ -285,21 +285,20 @@ if (import.meta.main) {
     server.sendAllWS({ data: "queue-remove-notification", notificationUUID });
   };
 
-  Deno.addSignalListener("SIGINT", () => {
+  Deno.addSignalListener("SIGINT", async () => {
     console.log();
     log("Terminate", "Interrupt received");
     log("Terminate", "Terminating server...");
-    server.ac.abort();
+    server.close();
 
     log("Terminate", "Terminating SettingsManager...");
     settingsManager.watcher.close();
-  });
 
-  server.onServerClose = () => {
-    log("HTTP/WS", "Server has terminated");
+    await Promise.all([server.closed, settingsManager.closed]);
 
     log("Terminate", "Goodbye! Thank you for using Andromeda");
-  };
+    Deno.exit();
+  });
 
   log("StartUp", "Starting MainServer...");
   server.serve();

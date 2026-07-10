@@ -34,12 +34,15 @@ export class HttpServer {
   dbManager: DatabaseManagement;
   options: ServerOptions;
 
-  ac = new AbortController();
+  private ac = new AbortController();
 
   private userMap = new Map<WebSocket, string>();
 
   onSocketClose: undefined | ((socket: WebSocket) => void);
-  onServerClose: undefined | (() => void);
+
+  closed;
+  private completeClose: undefined | ((value?: unknown) => void);
+  private connections = new Set<WebSocket>();
 
   constructor(
     handlerManager: HandlerManager,
@@ -49,6 +52,10 @@ export class HttpServer {
     this.dbManager = dbManager;
     this.handlerManager = handlerManager;
     this.options = Object.assign(defaultServerOptions, serverOptions);
+
+    this.closed = new Promise((resolve) => {
+      this.completeClose = resolve;
+    });
   }
 
   serve() {
@@ -79,12 +86,14 @@ export class HttpServer {
 
         socket.addEventListener("open", () => {
           log("WS", hostname, "Open");
-          this.onSocketClose?.(socket);
+          this.connections.add(socket);
         });
 
         socket.addEventListener("close", () => {
-          this.userMap.delete(socket);
           log("WS", hostname, "Close");
+          this.onSocketClose?.(socket);
+          this.userMap.delete(socket);
+          this.connections.delete(socket);
         });
 
         socket.addEventListener("message", (event) => {
@@ -96,7 +105,30 @@ export class HttpServer {
       },
     );
 
-    server.finished.then(this.onServerClose);
+    server.finished.then(() => {
+      log("HTTP/WS", "Server has terminated");
+      this.completeClose?.();
+    });
+  }
+
+  close() {
+    log("HTTP/WS", "Terminating sessions...");
+
+    for (const socket of this.connections) {
+      this.closeSocket(socket, 1001, "Andromeda Shelf is closing. Goodbye!");
+    }
+
+    this.ac.abort();
+  }
+
+  closeSocket(
+    socket: WebSocket,
+    code: number = 1000,
+    reason: string = "<no reason>",
+  ) {
+    // Send message just in case the client (like websocat) doesn't handle close properly
+    socket.send(`CLOSE [${code}] - ${reason} -`);
+    socket.close(code, reason);
   }
 
   protected async handleHttpPostRequest(req: Request): Promise<Response> {

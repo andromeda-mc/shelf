@@ -60,6 +60,9 @@ export class SettingsManager {
   private _bans = new Map<string, Bans[]>();
   private _properties = new Map<string, Properties>();
 
+  closed;
+  private completeClose: undefined | ((value?: unknown) => void);
+
   getWhitelist(serverUUID: string) {
     return this._whitelists.get(serverUUID) ?? [];
   }
@@ -86,12 +89,17 @@ export class SettingsManager {
     const watcher = Deno.watchFs(instancesPath);
     this.watcher = watcher;
 
+    this.closed = new Promise((resolve) => {
+      this.completeClose = resolve;
+    });
+
     (async () => {
       for await (const event of watcher) {
         this.handleEvent(event);
       }
     })().then(() => {
       log("SettingsManager", "Watcher has closed");
+      this.completeClose?.();
     });
   }
 
