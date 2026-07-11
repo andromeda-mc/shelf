@@ -2,6 +2,9 @@
   "version": "5",
   "specifiers": {
     "jsr:@bronti/argon2@^1.0.3": "1.0.3",
+    "jsr:@logtape/file@^2.2.4": "2.2.4",
+    "jsr:@logtape/logtape@^2.2.4": "2.2.4",
+    "jsr:@panva/jose@^6.2.3": "6.2.3",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/bytes@^1.0.6": "1.0.6",
@@ -12,15 +15,28 @@
     "jsr:@std/fs@^1.0.23": "1.0.24",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@^1.1.0": "1.1.5",
     "jsr:@std/path@^1.1.4": "1.1.5",
     "jsr:@std/path@^1.1.5": "1.1.5",
     "jsr:@std/uuid@^1.1.1": "1.1.1",
-    "jsr:@valibot/valibot@^1.4.2": "1.4.2",
-    "npm:jose@^6.2.3": "6.2.3"
+    "jsr:@valibot/valibot@^1.4.2": "1.4.2"
   },
   "jsr": {
     "@bronti/argon2@1.0.3": {
       "integrity": "ddd3614a701e18d41971ff7b6dcd5ced53db294ef81f7b3624e3f2f9fa175352"
+    },
+    "@logtape/file@2.2.4": {
+      "integrity": "04c8fe76b30fa854ad903eff380af90060163cc1289f268d3d43b541b4c3c7e1",
+      "dependencies": [
+        "jsr:@logtape/logtape",
+        "jsr:@std/path@^1.1.0"
+      ]
+    },
+    "@logtape/logtape@2.2.4": {
+      "integrity": "8ee23b7c8d4b2e28c43a3a16027a7a27ed3d453c395c7d91b9960640399201ec"
+    },
+    "@panva/jose@6.2.3": {
+      "integrity": "57cc772f01b2ac60f847a7e6ec815059762768186266ed833fb59953e9611312"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -95,22 +111,19 @@
       "integrity": "14f7fbb7474a8ade216224062d1e8b23cd17ecbb5176fc23595e846778c4725d"
     }
   },
-  "npm": {
-    "jose@6.2.3": {
-      "integrity": "sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw=="
-    }
-  },
   "workspace": {
     "dependencies": [
       "jsr:@bronti/argon2@^1.0.3",
+      "jsr:@logtape/file@^2.2.4",
+      "jsr:@logtape/logtape@^2.2.4",
+      "jsr:@panva/jose@^6.2.3",
       "jsr:@std/assert@^1.0.19",
       "jsr:@std/async@^1.5.0",
       "jsr:@std/datetime@~0.225.7",
       "jsr:@std/fs@^1.0.23",
       "jsr:@std/path@^1.1.4",
       "jsr:@std/uuid@^1.1.1",
-      "jsr:@valibot/valibot@^1.4.2",
-      "npm:jose@^6.2.3"
+      "jsr:@valibot/valibot@^1.4.2"
     ]
   }
 }

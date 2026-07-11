@@ -1,4 +1,3 @@
-import { log } from "./lib/server/httpWsServer.ts";
 import { DatabaseManagement } from "./lib/dbManagement.ts";
 import { Permissions, PermissionLevel } from "./lib/static/dbManagement.ts";
 import { QueueManager } from "./lib/queueManager.ts";
@@ -13,6 +12,8 @@ import * as vars from "./lib/vars.ts";
 import { existsSync } from "@std/fs";
 import { omit } from "./lib/utils/objects.ts";
 import { SettingsManager } from "./lib/settingsManager.ts";
+import { getLogger } from "@logtape/logtape";
+import { configureLogger } from "./lib/logger.ts";
 
 const AuthSchema = v.object({
   username: v.string(),
@@ -39,19 +40,25 @@ const WriteSchema = v.object({
 });
 
 if (import.meta.main) {
-  log("StartUp", "Initialising DatabaseManager...");
+  configureLogger();
+  const mainLogger = getLogger(["Shelf", "Main"]);
+
+  mainLogger.info("Welcome to Andromeda Shelf!");
+  mainLogger.info("Initialising services...");
+
+  mainLogger.debug("Initialising DatabaseManager...");
   const dbManager = new DatabaseManagement();
 
-  log("StartUp", "Initialising QueueManager...");
+  mainLogger.debug("Initialising QueueManager...");
   const queueManager = new QueueManager();
 
-  log("StartUp", "Initialising JavaFinder...");
+  mainLogger.debug("Initialising JavaFinder...");
   const javas = new JavaFinder(dbManager);
 
-  log("StartUp", "Initialising ServerManager...");
+  mainLogger.debug("Initialising ServerManager...");
   const serverManager = new ServerManager(dbManager, javas);
 
-  log("StartUp", "Initialising HandleManager...");
+  mainLogger.debug("Initialising HandleManager...");
   const handleManager = new HandlerManager();
 
   handleManager.addWebSocketHandler(
@@ -126,7 +133,7 @@ if (import.meta.main) {
       const promise = options.wrapPromise(serverManager.startServer(uuid));
 
       queueManager.scheduleTask({
-        title: "Starting server " + info.name,
+        title: `Starting server "${info.name}"`,
         type: "Server starting",
         promise,
         notifyOnFinish: false,
@@ -149,7 +156,7 @@ if (import.meta.main) {
       });
 
       queueManager.scheduleTask({
-        title: "Stopping server " + info.name,
+        title: `Stopping server "${info.name}"`,
         type: "Server stopping",
         promise,
         notifyOnFinish: false,
@@ -173,7 +180,7 @@ if (import.meta.main) {
       promise.then(() => server.sendAllWS({ data: "remove-server", uuid }));
 
       queueManager.scheduleTask({
-        title: "Deleting server " + info.name,
+        title: `Deleting server "${info.name}"`,
         type: "Server deletion",
         promise,
         notifyOnFinish: true,
@@ -346,10 +353,10 @@ if (import.meta.main) {
     });
   });
 
-  log("StartUp", "Initialising SettingsManager...");
+  mainLogger.debug("Initialising SettingsManager...");
   const settingsManager = new SettingsManager(serverManager);
 
-  log("StartUp", "Initialising MainServer...");
+  mainLogger.debug("Initialising MainServer...");
   const server = new HttpServer(handleManager, dbManager, {});
 
   server.onSocketClose = (socket) => {
@@ -386,19 +393,19 @@ if (import.meta.main) {
 
   Deno.addSignalListener("SIGINT", async () => {
     console.log();
-    log("Terminate", "Interrupt received");
-    log("Terminate", "Terminating server...");
+    mainLogger.info("Interrupt received");
+    mainLogger.debug("Terminating server...");
     server.close();
 
-    log("Terminate", "Terminating SettingsManager...");
+    mainLogger.debug("Terminating SettingsManager...");
     settingsManager.watcher.close();
 
     await Promise.all([server.closed, settingsManager.closed]);
 
-    log("Terminate", "Goodbye! Thank you for using Andromeda");
+    mainLogger.info("Goodbye! Thank you for using Andromeda");
     Deno.exit();
   });
 
-  log("StartUp", "Starting MainServer...");
+  mainLogger.debug("Starting MainServer...");
   server.serve();
 }

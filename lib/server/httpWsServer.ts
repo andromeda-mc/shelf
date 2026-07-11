@@ -1,21 +1,11 @@
 // deno-lint-ignore-file no-explicit-any
-import { format } from "@std/datetime";
 import { HandlerManager } from "./handlerManager.ts";
 import { safeParse } from "@valibot/valibot";
 import { DatabaseManagement } from "../dbManagement.ts";
 import { PermissionLevel, Permissions } from "../static/dbManagement.ts";
 import { MaybePromise } from "../utils/type.ts";
 import { promissify } from "../utils/promises.ts";
-
-export function log(module: string, ...message: any[]) {
-  const joinedMessage = message
-    .map((m) => String(m))
-    .join(" ")
-    .replaceAll(/[\n\r]/gm, "");
-  const timeStamp = format(new Date(), "yyyy.MM.dd HH:mm:ss");
-
-  console.log(`${module} - [${timeStamp}] : ${joinedMessage} -`);
-}
+import { getLogger } from "@logtape/logtape";
 
 export type MessageData = { data: string } & Record<string, any>;
 
@@ -44,6 +34,8 @@ export class HttpServer {
   private completeClose: undefined | ((value?: unknown) => void);
   private connections = new Set<WebSocket>();
 
+  private logger = getLogger(["Shelf", "HttpWsServer"]);
+
   constructor(
     handlerManager: HandlerManager,
     dbManager: DatabaseManagement,
@@ -59,11 +51,13 @@ export class HttpServer {
   }
 
   serve() {
+    const logger = this.logger;
+
     const server = Deno.serve(
       {
         ...this.options,
         onListen({ hostname, port }) {
-          log("HTTP/WS", `Andromeda Shelf listens on ws://${hostname}:${port}`);
+          logger.info(`Andromeda Shelf listens on ws://${hostname}:${port}`);
         },
         signal: this.ac.signal,
       },
@@ -74,7 +68,10 @@ export class HttpServer {
         }
 
         if (req.method === "POST") {
-          log("HTTP", hostname, "Request:", new URL(req.url).pathname);
+          logger.debug("{hostname} sent POST Request to {url}", {
+            hostname,
+            url: new URL(req.url).pathname,
+          });
           return this.handleHttpPostRequest(req);
         }
 
@@ -85,20 +82,19 @@ export class HttpServer {
         const { socket, response } = Deno.upgradeWebSocket(req);
 
         socket.addEventListener("open", () => {
-          log("WS", hostname, "Open");
+          logger.debug("{hostname} connected to WebSocket", { hostname });
           this.connections.add(socket);
         });
 
         socket.addEventListener("close", () => {
-          log("WS", hostname, "Close");
+          logger.debug("{hostname} disconnected from WebSocket", { hostname });
           this.onSocketClose?.(socket);
           this.userMap.delete(socket);
           this.connections.delete(socket);
         });
 
         socket.addEventListener("message", (event) => {
-          log("WS", hostname, "Message:", event.data);
-          this.handleWebSocketCommand(socket, event);
+          this.handleWebSocketCommand(socket, event, hostname);
         });
 
         return response;
@@ -106,13 +102,13 @@ export class HttpServer {
     );
 
     server.finished.then(() => {
-      log("HTTP/WS", "Server has terminated");
+      this.logger.debug("Server has terminated");
       this.completeClose?.();
     });
   }
 
   close() {
-    log("HTTP/WS", "Terminating sessions...");
+    this.logger.debug("Terminating sessions...");
 
     for (const socket of this.connections) {
       this.closeSocket(socket, 1001, "Andromeda Shelf is closing. Goodbye!");
@@ -134,23 +130,29 @@ export class HttpServer {
   protected async handleHttpPostRequest(req: Request): Promise<Response> {
     try {
       if (!req.headers.has("Authorization")) {
-        log("HTTP", "Unauthorized user. No token specified");
+        this.logger.warn(
+          "HTTP Authentification failed: Unauthorized user. No token specified",
+        );
         return this.errorHTML(401, "No token specified");
       }
 
       const auth = req.headers.get("Authorization")!;
       if (!auth.startsWith("JWT ")) {
-        log("HTTP", "Unauthorized user. Wrong token type specified");
+        this.logger.warn(
+          "HTTP Authentification failed: Unauthorized user. Wrong token type specified",
+        );
         return this.errorHTML(401, "Wrong token type specified");
       }
 
       const userUUID = await this.dbManager.validateJWT(auth.slice(4));
       if (!userUUID) {
-        log("HTTP", "Unauthorized user. Invalid token specified");
+        this.logger.warn(
+          "HTTP Authentification failed: Unauthorized user. Invalid token specified",
+        );
         return this.errorHTML(403, "Invalid token");
       }
       if (!this.dbManager.userExists(userUUID)) {
-        log("HTTP", "Unknown user");
+        this.logger.warn("HTTP Authentification failed: Unknown user");
         return this.errorHTML(401, "Unknown user");
       }
 
@@ -158,12 +160,15 @@ export class HttpServer {
       const command = url.pathname.slice(1).split("/")[0];
 
       if (!command) {
-        log("HTTP", "Invalid request received: No command");
+        this.logger.warn("Invalid HTTP Request received: No command");
         return this.errorHTML(400, "No command specified");
       }
 
       if (!(command in this.handlerManager.hpHandlers)) {
-        log("HTTP", "Unknown command:", command);
+        this.logger.warn(
+          "Invalid HTTP Request received: Unknown command: {command}",
+          { command },
+        );
         return this.errorHTML(404, "Unknown command specified");
       }
 
@@ -180,7 +185,9 @@ export class HttpServer {
           if (
             !this.dbManager.hasUserPermission(userUUID, flag as Permissions)
           ) {
-            log("HTTP", "Unauthorized user. No permission");
+            this.logger.warn(
+              "HTTP Authentification failed: Unauthorized user. No permission",
+            );
             return this.errorHTML(403, "No permission");
           }
         } else if (flag in PermissionLevel && userUUID) {
@@ -190,7 +197,9 @@ export class HttpServer {
               flag as PermissionLevel,
             )
           ) {
-            log("HTTP", "Unauthorized user. Below permission level");
+            this.logger.warn(
+              "HTTP Authentification failed: Unauthorized user. Below permission level",
+            );
             return this.errorHTML(403, "Below required permission level");
           }
         }
@@ -199,26 +208,51 @@ export class HttpServer {
       try {
         return entry.handler(options);
       } catch (err) {
-        log("HTTP", `Error in handler '${command}': ${err}`);
+        if (err instanceof Error) {
+          this.logger.error("HTTP Handling: Error in handler for {command}", {
+            err,
+            command,
+          });
+        } else {
+          this.logger.error("HTTP Handling: Error in handler for {command}", {
+            command,
+          });
+        }
+
         return this.errorHTML(
           500,
           "An error occured within the handler for your proccess",
         );
       }
     } catch (err) {
-      log("HTTP", "Invalid request received: " + err);
+      if (err instanceof Error) {
+        this.logger.warn("Invalid HTTP Request received: {err}", {
+          err,
+        });
+      } else {
+        this.logger.warn("Invalid HTTP Request received");
+      }
       return this.errorHTML(400, "Server failed to process request");
     }
   }
 
-  protected handleWebSocketCommand(socket: WebSocket, event: MessageEvent) {
+  protected handleWebSocketCommand(
+    socket: WebSocket,
+    event: MessageEvent,
+    hostname: string,
+  ) {
     try {
       const msg = JSON.parse(event.data);
       const command = msg.data;
 
+      this.logger.debug("{hostname} sent WebSocket Message: {data}", {
+        hostname,
+        data: msg,
+      });
+
       if (!command) {
         this.errorWS(socket, "invalid: no data");
-        log("WS", "Invalid message received: No command");
+        this.logger.warn("Invalid WS Message received: No command");
         return;
       }
 
@@ -228,7 +262,10 @@ export class HttpServer {
 
       if (!(command in this.handlerManager.wsHandlers)) {
         error("invalid: command");
-        log("WS", "Unknown command:", command);
+        this.logger.warn(
+          "Invalid WS Message received: Unknown command: {command}",
+          { command },
+        );
         return;
       }
 
@@ -245,19 +282,21 @@ export class HttpServer {
         )
       ) {
         error("auth: not authed");
-        log("WS", "Unauthorized user");
+        this.logger.warn("WS Authentification failed: Unauthorized user");
         return;
       }
 
       if (userUUID && entry.flags.includes("force-public")) {
         error("auth: authed users disallowed");
-        log("WS", "Authorized users disallowed");
+        this.logger.warn(
+          "WS Authentification failed: Authenticated users are disallowed",
+        );
         return;
       }
 
       if (userUUID && !this.dbManager.userExists(userUUID)) {
         error("auth: unknown user");
-        log("WS", "Unknown user");
+        this.logger.warn("WS Authentification failed: Unknown user");
         return;
       }
 
@@ -271,7 +310,9 @@ export class HttpServer {
             !this.dbManager.hasUserPermission(userUUID, flag as Permissions)
           ) {
             error("auth: no permission");
-            log("WS", "Unauthorized user. No permission");
+            this.logger.warn(
+              "WS Authentification failed: Unauthorized user. No permission",
+            );
             return;
           }
         } else if (flag in PermissionLevel && userUUID) {
@@ -282,7 +323,9 @@ export class HttpServer {
             )
           ) {
             error("auth: no permission");
-            log("WS", "Unauthorized user. Below permission level");
+            this.logger.warn(
+              "WS Authentification failed: Unauthorized user. Below permission level",
+            );
             return;
           }
         }
@@ -295,7 +338,9 @@ export class HttpServer {
           const issues = parseResult.issues.map((i) => i.message).join("; ");
 
           error("validation: " + issues);
-          log("WS", "Handler found, but schema failed:", issues);
+          this.logger.warn("WS Handler found, but schema failed: {issues}", {
+            issues,
+          });
           return;
         }
 
@@ -307,6 +352,11 @@ export class HttpServer {
       };
 
       options.authConnection = (userUUID: string) => {
+        this.logger.debug("{hostname} has authenticated for user {userUUID}", {
+          hostname,
+          userUUID,
+        });
+
         this.userMap.set(socket, userUUID);
       };
 
@@ -315,8 +365,14 @@ export class HttpServer {
           error(err);
         } else {
           error("failed: execution");
-          log("WS", `Error in handler '${command}': ${err}`);
-          if ((err as any).stack) console.error((err as Error).stack);
+          if (err instanceof Error) {
+            this.logger.error("WS Handling: Error in handler for {command}", {
+              err,
+              command,
+            });
+          } else {
+            this.logger.error("WS Handling: Error in handler for {command}");
+          }
         }
       };
 
@@ -335,8 +391,18 @@ export class HttpServer {
         handleError(err);
       }
     } catch (err) {
+      this.logger.debug("{hostname} sent WebSocket Message: {data}", {
+        hostname,
+        data: event.data,
+      });
       this.errorWS(socket, "invalid: msg");
-      log("WS", "Invalid message received: " + err);
+      if (err instanceof Error) {
+        this.logger.warn("Invalid WS Message received: {err}", {
+          err,
+        });
+      } else {
+        this.logger.warn("Invalid WS Message received");
+      }
     }
   }
 

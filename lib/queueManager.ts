@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { generate as generateUUID } from "@std/uuid/v7";
+import { getLogger } from "@logtape/logtape";
 
 interface QueueItem<ReturnType> {
   title: string;
@@ -44,6 +45,8 @@ export class QueueManager {
   onNotificationAdded: undefined | ((item: QueueNotification) => void);
   onNotificationRemoved: undefined | ((item: string) => void);
 
+  private logger = getLogger(["Shelf", "QueueManager"]);
+
   scheduleTask(stubTask: StubQueueItem) {
     function deleteQueue(queue: QueueManager) {
       queue.onQueueRemoved?.(task.itemUUID);
@@ -61,6 +64,7 @@ export class QueueManager {
 
     // Handle onComplete
     task.promise.then((value) => {
+      this.logger.info("Task {name} has completed", { name: task.title });
       if (task.notifyOnFinish) {
         this.addNotification({
           title: `Task "${task.title}" has completed`,
@@ -78,6 +82,7 @@ export class QueueManager {
 
     // Handle exceptions
     task.promise.catch((error: unknown) => {
+      this.logger.warn("Task {name} has failed", { name: task.title });
       this.addNotification({
         title: `"${task.type}" task failed`,
         subtitle:
@@ -92,6 +97,7 @@ export class QueueManager {
       deleteQueue(this);
     });
 
+    this.logger.info("Queded task {name}", { name: task.title });
     this.entries.push(task);
     this.onQueueAdded?.(task);
   }
@@ -101,6 +107,7 @@ export class QueueManager {
     notification.date = new Date();
     notification.itemUUID = generateUUID();
 
+    this.logger.info("Added notification {name}", { name: notification.title });
     this._notifications.push(notification);
     this.onNotificationAdded?.(notification);
   }

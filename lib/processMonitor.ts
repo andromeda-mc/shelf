@@ -1,4 +1,4 @@
-import { log } from "./server/httpWsServer.ts";
+import { getLogger } from "@logtape/logtape";
 
 type Listener = (output: string) => void;
 
@@ -18,6 +18,8 @@ export class ProcessMonitor {
   process;
   customTerminate;
 
+  private logger = getLogger(["Shelf", "ProcessMonitor"]);
+
   constructor(config: ProcessConfig) {
     this.customTerminate = config.customTerminate;
 
@@ -35,9 +37,9 @@ export class ProcessMonitor {
       },
     });
 
-    log(
-      "ProcessMonitor",
-      `Starting process ${this.process.pid}: "script -O /dev/null -qec ${args}"`,
+    this.logger.debug(
+      'Starting process {pid}: "script -O /dev/null -qec {args}',
+      { pid: this.process.pid, args },
     );
 
     const createHandler = () =>

@@ -5,7 +5,7 @@ import { type ServerManager } from "./mcServerManager.ts";
 import { ServerStates } from "./static/mcServerManager.ts";
 import { getUUID } from "./minecraftApi.ts";
 import { convToMojDate, parseMojDate } from "./utils/date.ts";
-import { log } from "./server/httpWsServer.ts";
+import { getLogger } from "@logtape/logtape";
 
 type PropertyTypes = string | number | boolean | null;
 type Properties = Record<string, PropertyTypes>;
@@ -67,6 +67,8 @@ export class SettingsManager {
   closed;
   private completeClose: undefined | ((value?: unknown) => void);
 
+  private logger = getLogger(["Shelf", "SettingsManager"]);
+
   getWhitelist(serverUUID: string) {
     return this._whitelists.get(serverUUID) ?? [];
   }
@@ -110,13 +112,13 @@ export class SettingsManager {
         this.handleEvent(event);
       }
     })().then(() => {
-      log("SettingsManager", "Watcher has closed");
+      this.logger.debug("Watcher has closed");
       this.completeClose?.();
     });
   }
 
   private updateAllServers() {
-    log("SettingsManager", "Updating all servers. This could clog the logs");
+    this.logger.info("Updating all servers. This could clog the logs");
 
     for (const server of Deno.readDirSync(instancesPath)) {
       if (!server.isDirectory) continue;
@@ -129,7 +131,9 @@ export class SettingsManager {
         this.updateProperties(uuid);
       } catch (err) {
         if (err === "not ready: server.properties") {
-          log("SettingsManager", `Server UUID "${uuid}" has no properties yet`);
+          this.logger.warn("Server UUID {uuid} has no properties yet", {
+            uuid,
+          });
         } else {
           throw err;
         }
@@ -183,7 +187,9 @@ export class SettingsManager {
   // Whitelist / whitelist.json
 
   private updateWhitelist(serverUUID: string) {
-    log("SettingsManager", `Updating whitelist of Server UUID "${serverUUID}"`);
+    this.logger.debug("Updating whitelist of Server UUID {serverUUID}", {
+      serverUUID,
+    });
 
     const whitelistPath = this.getPath(serverUUID, whitelistFile);
     if (!whitelistPath) {
@@ -195,8 +201,12 @@ export class SettingsManager {
       const content = Deno.readTextFileSync(whitelistPath);
       const whitelist: Whitelist[] = JSON.parse(content);
       this._whitelists.set(serverUUID, whitelist);
-    } catch {
-      log("SettingsManager", "Invalid Whitelist read");
+    } catch (err) {
+      if (err instanceof Error) {
+        this.logger.error("Invalid Whitelist read", err);
+      } else {
+        this.logger.error("Invalid Whitelist read");
+      }
       this._whitelists.set(serverUUID, []);
     }
   }
@@ -244,7 +254,9 @@ export class SettingsManager {
   // Ops / ops.json
 
   private updateOps(serverUUID: string) {
-    log("SettingsManager", `Updating ops of Server UUID "${serverUUID}"`);
+    this.logger.debug("Updating ops of Server UUID {serverUUID}", {
+      serverUUID,
+    });
 
     const opsPath = this.getPath(serverUUID, opsFile);
     if (!opsPath) {
@@ -256,8 +268,12 @@ export class SettingsManager {
       const content = Deno.readTextFileSync(opsPath);
       const ops: Ops[] = JSON.parse(content);
       this._ops.set(serverUUID, ops);
-    } catch {
-      log("SettingsManager", "Invalid Ops read");
+    } catch (err) {
+      if (err instanceof Error) {
+        this.logger.error("Invalid Ops read", err);
+      } else {
+        this.logger.error("Invalid Ops read");
+      }
       this._ops.set(serverUUID, []);
     }
   }
@@ -318,7 +334,9 @@ export class SettingsManager {
   // Bans / banned-players.json
 
   private updateBans(serverUUID: string) {
-    log("SettingsManager", `Updating bans of Server UUID "${serverUUID}"`);
+    this.logger.debug("Updating bans of Server UUID {serverUUID}", {
+      serverUUID,
+    });
 
     const bansPath = this.getPath(serverUUID, bansFile);
     if (!bansPath) {
@@ -330,8 +348,12 @@ export class SettingsManager {
       const content = Deno.readTextFileSync(bansPath);
       const bans: Bans[] = JSON.parse(content);
       this._bans.set(serverUUID, bans);
-    } catch {
-      log("SettingsManager", "Invalid Bans read");
+    } catch (err) {
+      if (err instanceof Error) {
+        this.logger.error("Invalid Bans read", err);
+      } else {
+        this.logger.error("Invalid Bans read");
+      }
       this._bans.set(serverUUID, []);
     }
   }
@@ -384,10 +406,9 @@ export class SettingsManager {
   // Properties / server.properties
 
   private updateProperties(serverUUID: string) {
-    log(
-      "SettingsManager",
-      `Updating properties of Server UUID "${serverUUID}"`,
-    );
+    this.logger.debug("Updating properties of Server UUID {serverUUID}", {
+      serverUUID,
+    });
 
     const propertiesPath = this.getPath(serverUUID, propertiesFile);
     if (!propertiesPath) {
@@ -406,8 +427,12 @@ export class SettingsManager {
       const properties = Object.fromEntries(entries);
 
       this._properties.set(serverUUID, properties);
-    } catch {
-      log("SettingsManager", "Invalid Properties read");
+    } catch (err) {
+      if (err instanceof Error) {
+        this.logger.error("Invalid Properties read", err);
+      } else {
+        this.logger.error("Invalid Properties read");
+      }
       this._properties.set(serverUUID, {});
     }
   }

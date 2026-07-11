@@ -9,6 +9,7 @@ import {
   ServerCreationInfo,
   ServerSettings,
 } from "./static/mcServerManager.ts";
+import { getLogger } from "@logtape/logtape";
 
 const installerTempPath = "/tmp/andromeda-stall2-installer.jar";
 
@@ -22,6 +23,8 @@ export class ServerManager {
 
   onServerCrash: undefined | ((name: string) => void);
   onStateChange: undefined | ((uuid: string, state: ServerStates) => void);
+
+  private logger = getLogger(["Shelf", "McServerManager"]);
 
   constructor(dbManager: DatabaseManagement, javaFinder: JavaFinder) {
     this.dbManager = dbManager;
@@ -41,11 +44,17 @@ export class ServerManager {
       throw TypeError("Loader requires loader version");
     }
 
+    this.logger.info(
+      "Create server requested: Name {name} with {software} {software_version} on {mc_version}",
+      { ...info },
+    );
+
     try {
       const downloadUrl = await softwareInfo.produceDownloadUrl(
         info.mc_version,
         info.software_version,
       );
+      this.logger.trace("Downloading {downloadUrl}", { downloadUrl });
       const response = await fetch(downloadUrl);
       const data = await response.bytes();
 
@@ -65,13 +74,18 @@ export class ServerManager {
           ),
         ];
 
-        const installer = new Deno.Command(this.javaFinder.latestJava, {
+        const java = this.javaFinder.latestJava;
+
+        this.logger.trace("Starting installer {java} {args}", { java, args });
+        const result = Deno.spawnAndWaitSync(java, {
           args,
           cwd: "/tmp",
-        }).spawn();
+        });
 
-        const result = await installer.status;
-        if (!result) {
+        if (!result.success) {
+          this.logger.error("Installation failed. Status {status}", {
+            status: result.code,
+          });
           throw "installation: script failed";
         }
 
@@ -127,6 +141,7 @@ export class ServerManager {
   }
 
   deleteServer(uuid: string) {
+    this.logger.info("Deleting server {uuid}", { uuid });
     this.dbManager.deleteServer(uuid);
     this.dbManager.sync();
   }
@@ -157,6 +172,7 @@ export class ServerManager {
       throw "invalid: already running";
     }
 
+    this.logger.info("Starting server {uuid}", { uuid });
     const serverMetadata = this.dbManager.getServer(uuid);
     const javaBin = await this.javaFinder.getJavaRuntimeForVersion(
       serverMetadata.mc_version,
@@ -183,6 +199,7 @@ export class ServerManager {
       this.listeners.get(uuid)!.forEach((socket) => socket.send(msg));
 
       if (output.includes("This crash report has been saved to")) {
+        this.logger.warn("Server {uuid} seems to have crashed", { uuid });
         const server = this.dbManager.getServer(uuid);
         this.onServerCrash?.(server.name);
         this.states.set(uuid, ServerStates.Stopped);
@@ -190,9 +207,11 @@ export class ServerManager {
       }
 
       if (output.includes("Stopping server")) {
+        this.logger.info("Server {uuid} is stopping", { uuid });
         this.states.set(uuid, ServerStates.Stopping);
         this.onStateChange?.(uuid, ServerStates.Stopping);
       } else if (output.includes('For help, type "help"')) {
+        this.logger.info("Server {uuid} is running", { uuid });
         this.states.set(uuid, ServerStates.Running);
         this.onStateChange?.(uuid, ServerStates.Running);
       }
@@ -205,13 +224,16 @@ export class ServerManager {
 
     watcher.process.status.then((v) => {
       const prevState = this.states.get(uuid);
+      this.logger.info("Server {uuid} has stopped", { uuid });
       this.states.set(uuid, ServerStates.Stopped);
       this.onStateChange?.(uuid, ServerStates.Stopped);
 
       // The other crash detector sets the state to stopped.
       // If the server is already stopped (e.g. due to a crash) no second crash will be reported
-      if (!v.success && prevState !== ServerStates.Stopped)
+      if (!v.success && prevState !== ServerStates.Stopped) {
+        this.logger.warn("Server {uuid} seems to have crashed", { uuid });
         this.onServerCrash?.(serverMetadata.name);
+      }
     });
   }
 
@@ -223,6 +245,7 @@ export class ServerManager {
     if (this.states.get(uuid) !== ServerStates.Running) {
       throw "server: not running";
     }
+    this.logger.info("Stopping server {uuid}", { uuid });
     const watcher = this.processes.get(uuid)!;
     return watcher.terminate();
   }
@@ -235,6 +258,7 @@ export class ServerManager {
     if (this.states.get(uuid) === ServerStates.Stopped) {
       throw "server: is stopped";
     }
+    this.logger.info("Terminating server {uuid}", { uuid });
     const watcher = this.processes.get(uuid)!;
     return watcher.kill();
   }

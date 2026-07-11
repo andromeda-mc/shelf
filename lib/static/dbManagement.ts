@@ -7,6 +7,7 @@ export const rootPath = join(
 );
 export const globalDBPath = join(rootPath, "global-db.json");
 export const instancesPath = join(rootPath, "instances");
+export const logPath = join(rootPath, "logs");
 export const iconRootPath = existsSync("icons")
   ? "icons"
   : join(rootPath, "icons");

@@ -1,7 +1,10 @@
 import { assertEquals } from "@std/assert";
 import * as mod from "../lib/utils/date.ts";
+import { configureLogger } from "../lib/logger.ts";
 
 Deno.test(function mojangDateConversion() {
+  configureLogger();
+
   const orig = new Date();
   orig.setMilliseconds(0);
 

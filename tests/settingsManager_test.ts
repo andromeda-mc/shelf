@@ -1,7 +1,10 @@
+import { configureLogger } from "../lib/logger.ts";
 import * as mod from "../lib/settingsManager.ts";
 import { assertEquals } from "@std/assert";
 
 Deno.test(function testPropertyParsing() {
+  configureLogger();
+
   // Numbers
   assertEquals(mod.parseProperty("123"), 123);
   assertEquals(mod.parseProperty("123.456"), 123.456);

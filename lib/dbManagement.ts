@@ -1,4 +1,4 @@
-import { JWTPayload, jwtVerify, SignJWT } from "jose";
+import { JWTPayload, jwtVerify, SignJWT } from "@panva/jose";
 import { generate as generateUUID } from "@std/uuid/v7";
 import { hash, verify } from "@bronti/argon2";
 import { join } from "@std/path";
