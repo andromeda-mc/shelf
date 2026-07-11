@@ -9,7 +9,6 @@ import * as v from "@valibot/valibot";
 import { HttpServer } from "./lib/server/httpWsServer.ts";
 import { HandlerManager } from "./lib/server/handlerManager.ts";
 import * as vars from "./lib/vars.ts";
-import { existsSync } from "@std/fs";
 import { omit } from "./lib/utils/objects.ts";
 import { SettingsManager } from "./lib/settingsManager.ts";
 import { getLogger } from "@logtape/logtape";
@@ -345,12 +344,17 @@ if (import.meta.main) {
       return server.errorHTML(400, "No icon specified");
     }
     const iconPath = dbManager.getIconPath(splitPath[0]);
-    if (!existsSync(iconPath)) {
-      return server.errorHTML(404, "Unknown icon");
+
+    try {
+      return new Response(Deno.readFileSync(iconPath), {
+        headers: { "Content-Type": "image/png" },
+      });
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        return server.errorHTML(404, "Unknown icon");
+      }
+      throw error;
     }
-    return new Response(Deno.readFileSync(iconPath), {
-      headers: { "Content-Type": "image/png" },
-    });
   });
 
   mainLogger.debug("Initialising SettingsManager...");

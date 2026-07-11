@@ -2,7 +2,6 @@ import { JWTPayload, jwtVerify, SignJWT } from "@panva/jose";
 import { generate as generateUUID } from "@std/uuid/v7";
 import { hash, verify } from "@bronti/argon2";
 import { join } from "@std/path";
-import { existsSync } from "@std/fs";
 import {
   ServerCreationInfo,
   ServerSettings,
@@ -58,7 +57,11 @@ export class DatabaseManagement {
 
   constructor() {
     Deno.mkdirSync(rootPath, { recursive: true });
-    if (!existsSync(globalDBPath)) {
+
+    try {
+      const content = Deno.readTextFileSync(globalDBPath);
+      this.globalDB = JSON.parse(content);
+    } catch {
       this.globalDB = {
         version: vars.API_VERSION,
         users: {},
@@ -70,9 +73,6 @@ export class DatabaseManagement {
       this.globalDB.users[adminUUID].permissionLevel = PermissionLevel.Admin;
 
       this.sync();
-    } else {
-      const content = Deno.readTextFileSync(globalDBPath);
-      this.globalDB = JSON.parse(content);
     }
   }
 

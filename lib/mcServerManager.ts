@@ -2,7 +2,6 @@ import { join } from "@std/path";
 import type { DatabaseManagement } from "./dbManagement.ts";
 import { JavaFinder } from "./javas.ts";
 import { loaders } from "./serverSoftwares.ts";
-import { existsSync } from "@std/fs";
 import { type ProcessConfig, ProcessMonitor } from "./processMonitor.ts";
 import {
   ServerStates,
@@ -93,13 +92,18 @@ export class ServerManager {
 
         if (info.software === "Quilt") {
           launchScript = "-jar quilt-server-launch.jar";
-        } else if (existsSync(run_path)) {
-          launchScript = Deno.readTextFileSync(run_path)
+        }
+
+        try {
+          const content = Deno.readTextFileSync(run_path);
+          launchScript = content
             .split("\n")
             .find((line) => line.startsWith("java"))!
             .replace("java", "")
             .replace("@user_jvm_args.txt", "");
           Deno.removeSync(run_path);
+        } catch (err) {
+          if (!(err instanceof Deno.errors.NotFound)) throw err;
         }
 
         Deno.removeSync(installerTempPath);

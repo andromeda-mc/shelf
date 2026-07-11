@@ -1,4 +1,4 @@
-import { existsSync } from "@std/fs/exists";
+import { existsSync } from "@std/fs";
 import { join } from "@std/path/join";
 
 export const rootPath = join(

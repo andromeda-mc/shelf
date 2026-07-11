@@ -175,12 +175,11 @@ export class SettingsManager {
 
   // General Stuff
 
-  private getPath(serverUUID: string, file: string, create: boolean = false) {
+  private getPath(serverUUID: string, file: string) {
     const instancePath = join(instancesPath, serverUUID);
     if (!existsSync(instancePath)) throw "unknown: server";
 
     const filePath = join(instancePath, file);
-    if (!existsSync(filePath) && !create) return;
     return filePath;
   }
 
@@ -192,17 +191,15 @@ export class SettingsManager {
     });
 
     const whitelistPath = this.getPath(serverUUID, whitelistFile);
-    if (!whitelistPath) {
-      this._whitelists.set(serverUUID, []);
-      return;
-    }
 
     try {
       const content = Deno.readTextFileSync(whitelistPath);
       const whitelist: Whitelist[] = JSON.parse(content);
       this._whitelists.set(serverUUID, whitelist);
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof Deno.errors.NotFound) {
+        // NotFound errors are not critical here
+      } else if (err instanceof Error) {
         this.logger.error("Invalid Whitelist read", err);
       } else {
         this.logger.error("Invalid Whitelist read");
@@ -212,7 +209,7 @@ export class SettingsManager {
   }
 
   private saveWhitelist(serverUUID: string) {
-    const whitelistPath = this.getPath(serverUUID, whitelistFile, true)!;
+    const whitelistPath = this.getPath(serverUUID, whitelistFile);
     const whitelist = this.getProperties(serverUUID);
 
     const content = JSON.stringify(whitelist);
@@ -259,17 +256,15 @@ export class SettingsManager {
     });
 
     const opsPath = this.getPath(serverUUID, opsFile);
-    if (!opsPath) {
-      this._ops.set(serverUUID, []);
-      return;
-    }
 
     try {
       const content = Deno.readTextFileSync(opsPath);
       const ops: Ops[] = JSON.parse(content);
       this._ops.set(serverUUID, ops);
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof Deno.errors.NotFound) {
+        // NotFound errors are not critical here
+      } else if (err instanceof Error) {
         this.logger.error("Invalid Ops read", err);
       } else {
         this.logger.error("Invalid Ops read");
@@ -279,7 +274,7 @@ export class SettingsManager {
   }
 
   private saveOps(serverUUID: string) {
-    const opsPath = this.getPath(serverUUID, opsFile, true)!;
+    const opsPath = this.getPath(serverUUID, opsFile);
     const ops = this.getOps(serverUUID);
 
     const content = JSON.stringify(ops);
@@ -339,17 +334,15 @@ export class SettingsManager {
     });
 
     const bansPath = this.getPath(serverUUID, bansFile);
-    if (!bansPath) {
-      this._bans.set(serverUUID, []);
-      return;
-    }
 
     try {
       const content = Deno.readTextFileSync(bansPath);
       const bans: Bans[] = JSON.parse(content);
       this._bans.set(serverUUID, bans);
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof Deno.errors.NotFound) {
+        // NotFound errors are not critical here
+      } else if (err instanceof Error) {
         this.logger.error("Invalid Bans read", err);
       } else {
         this.logger.error("Invalid Bans read");
@@ -359,7 +352,7 @@ export class SettingsManager {
   }
 
   private saveBans(serverUUID: string) {
-    const bansPath = this.getPath(serverUUID, bansFile, true)!;
+    const bansPath = this.getPath(serverUUID, bansFile);
     const bans = this.getBans(serverUUID);
 
     const content = JSON.stringify(bans);
@@ -411,10 +404,6 @@ export class SettingsManager {
     });
 
     const propertiesPath = this.getPath(serverUUID, propertiesFile);
-    if (!propertiesPath) {
-      this._properties.delete(serverUUID);
-      throw "not ready: server.properties";
-    }
 
     try {
       const content = Deno.readTextFileSync(propertiesPath);
@@ -428,12 +417,15 @@ export class SettingsManager {
 
       this._properties.set(serverUUID, properties);
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof Deno.errors.NotFound) {
+        this._properties.delete(serverUUID);
+        throw "not ready: server.properties";
+      } else if (err instanceof Error) {
         this.logger.error("Invalid Properties read", err);
       } else {
         this.logger.error("Invalid Properties read");
       }
-      this._properties.set(serverUUID, {});
+      this._properties.delete(serverUUID);
     }
   }
 

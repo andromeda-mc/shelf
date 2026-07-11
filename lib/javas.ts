@@ -1,4 +1,3 @@
-import { existsSync } from "@std/fs";
 import { join } from "@std/path";
 import type { DatabaseManagement } from "./dbManagement.ts";
 import { Vanilla } from "./serverSoftwares.ts";
@@ -78,32 +77,39 @@ export class JavaFinder {
     // Method 2: Folders
 
     for (const store of paths) {
-      if (!existsSync(store)) continue;
-      for (const path of Deno.readDirSync(store)) {
-        if (!path.isDirectory) continue;
-        const filePath = Deno.realPathSync(join(store, path.name));
-        if (binaries.has(filePath)) continue;
+      try {
+        for (const path of Deno.readDirSync(store)) {
+          if (!path.isDirectory) continue;
+          const filePath = Deno.realPathSync(join(store, path.name));
+          if (binaries.has(filePath)) continue;
 
-        // Step 1: Name Check
-        let name: string;
-        if (filePath.split("/")[1] == "nix") {
-          const split_name = path.name.split("-");
+          // Step 1: Name Check
+          let name: string;
+          if (filePath.split("/")[1] == "nix") {
+            const split_name = path.name.split("-");
 
-          if (split_name.length == 1) continue;
-          name = split_name.slice(1).join("-");
-        } else {
-          name = path.name;
+            if (split_name.length == 1) continue;
+            name = split_name.slice(1).join("-");
+          } else {
+            name = path.name;
+          }
+
+          if (!keywords.some((kw) => name.includes(kw))) continue;
+          if (keywords_blacklist.some((kw) => name.includes(kw))) continue;
+
+          // Step 2: Version recognition
+          for (const candidate of java_subdirs) {
+            const merged = join(filePath, candidate);
+
+            try {
+              if (Deno.statSync(merged).isFile) addJavaPath(merged);
+            } catch (err) {
+              if (!(err instanceof Deno.errors.NotFound)) throw err;
+            }
+          }
         }
-
-        if (!keywords.some((kw) => name.includes(kw))) continue;
-        if (keywords_blacklist.some((kw) => name.includes(kw))) continue;
-
-        // Step 2: Version recognition
-        for (const candidate of java_subdirs) {
-          const merged = join(filePath, candidate);
-          if (existsSync(merged) && Deno.statSync(merged).isFile)
-            addJavaPath(merged);
-        }
+      } catch (err) {
+        if (!(err instanceof Deno.errors.NotFound)) throw err;
       }
     }
 
