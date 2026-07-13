@@ -20,12 +20,12 @@ const AuthSchema = v.object({
 });
 
 const CreateServerSchema = v.object({
-  name: v.string(),
+  name: v.pipe(v.string(), v.nonEmpty()),
   software: v.pipe(
     v.string(),
     v.check((item) => item in loaders, "Unknown server software"),
   ),
-  mc_version: v.string(),
+  mc_version: v.pipe(v.string(), v.nonEmpty()),
   software_version: v.undefinedable(v.string()),
 });
 
@@ -33,10 +33,26 @@ const SimpleServerActionSchema = v.object({
   uuid: v.pipe(v.string(), v.uuid()),
 });
 
-const WriteSchema = v.object({
-  content: v.pipe(v.string(), v.nonEmpty()),
-  uuid: v.pipe(v.string(), v.uuid()),
-});
+const ServerPlayerActionSchema = v.intersect([
+  SimpleServerActionSchema,
+  v.object({
+    player: v.pipe(v.string(), v.nonEmpty()),
+  }),
+]);
+
+const WriteSchema = v.intersect([
+  SimpleServerActionSchema,
+  v.object({
+    content: v.pipe(v.string(), v.nonEmpty()),
+  }),
+]);
+
+interface ServerCheckOptions {
+  userUUID: string;
+  data: {
+    uuid: string;
+  };
+}
 
 if (import.meta.main) {
   configureLogger();
@@ -59,6 +75,14 @@ if (import.meta.main) {
 
   mainLogger.debug("Initialising HandleManager...");
   const handleManager = new HandlerManager();
+
+  const checkServerAccess = (options: ServerCheckOptions) => {
+    const { uuid } = options.data;
+    if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
+      throw "unknown: server";
+    }
+    return uuid;
+  };
 
   handleManager.addWebSocketHandler(
     "version",
@@ -104,7 +128,9 @@ if (import.meta.main) {
     "create-server",
     (options) => {
       const info = options.data as ServerCreationInfo;
-      const promise = options.wrapPromise(serverManager.createServer(info));
+      const promise = options.wrapPromise(
+        serverManager.createServer(info, options.userUUID),
+      );
       promise.then((mcServer) =>
         server.sendAllWS({ data: "add-new-server", server: mcServer }),
       );
@@ -124,10 +150,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "start-server",
     (options) => {
-      const { uuid } = options.data;
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       const info = dbManager.getServer(uuid);
       const promise = options.wrapPromise(serverManager.startServer(uuid));
 
@@ -145,10 +168,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "stop-server",
     (options) => {
-      const { uuid } = options.data;
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       const info = dbManager.getServer(uuid);
       const promise = options.wrapPromise(() => {
         serverManager.stopServer(uuid);
@@ -168,10 +188,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "delete-server",
     (options) => {
-      const { uuid } = options.data;
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       const info = dbManager.getServer(uuid);
       const promise = options.wrapPromise(() => {
         serverManager.deleteServer(uuid);
@@ -203,10 +220,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "subscribe-log",
     (options) => {
-      const { uuid } = options.data;
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       serverManager.addServerListener(uuid, options.socket);
 
       const history = serverManager.processes.get(uuid)?.history;
@@ -232,10 +246,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "write",
     (options) => {
-      const { uuid } = options.data;
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       serverManager.write(uuid, options.data.content);
     },
     WriteSchema,
@@ -269,11 +280,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "read-whitelist",
     (options) => {
-      const { uuid } = options.data;
-
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       return options.respond({
         data: "server-config",
         uuid,
@@ -287,11 +294,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "read-bans",
     (options) => {
-      const { uuid } = options.data;
-
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       return options.respond({
         data: "server-config",
         uuid,
@@ -305,11 +308,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "read-ops",
     (options) => {
-      const { uuid } = options.data;
-
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       return options.respond({
         data: "server-config",
         uuid,
@@ -323,11 +322,7 @@ if (import.meta.main) {
   handleManager.addWebSocketHandler(
     "read-properties",
     (options) => {
-      const { uuid } = options.data;
-
-      if (!serverManager.isUserAllowedToAccessServer(options.userUUID, uuid)) {
-        throw "unknown: server";
-      }
+      const uuid = checkServerAccess(options);
       return options.respond({
         data: "server-config",
         uuid,
@@ -336,6 +331,40 @@ if (import.meta.main) {
     },
     SimpleServerActionSchema,
     Permissions.ReadProperties,
+  );
+
+  handleManager.addWebSocketHandler(
+    "whitelist-player",
+    (options) => {
+      const uuid = checkServerAccess(options);
+      const { player } = options.data;
+      const info = dbManager.getServer(uuid);
+      const promise = settingsManager.addToWhitelist(uuid, player);
+
+      promise.then((entry) =>
+        options.respond({ data: "add-to-whitelist", uuid, entry }),
+      );
+
+      queueManager.scheduleTask({
+        title: `Whitelisting "${player}"`,
+        subtitle: `Server "${info.name}"`,
+        type: "Whitelisting",
+        notifyOnFinish: false,
+        promise,
+      });
+    },
+    ServerPlayerActionSchema,
+    Permissions.WhitelistPlayer,
+  );
+
+  handleManager.addWebSocketHandler(
+    "unwhitelist-player",
+    (options) => {
+      const uuid = checkServerAccess(options);
+      settingsManager.removeFromWhitelist(uuid, options.data.player);
+    },
+    ServerPlayerActionSchema,
+    Permissions.UnwhitelistPlayer,
   );
 
   handleManager.addHttpPostHandler("icon", (options) => {

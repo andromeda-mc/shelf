@@ -10,6 +10,7 @@ import {
 } from "./static/mcServerManager.ts";
 import { getLogger } from "@logtape/logtape";
 import { ofetch } from "ofetch";
+import { PermissionLevel } from "./static/dbManagement.ts";
 
 const installerTempPath = "/tmp/andromeda-stall2-installer.jar";
 
@@ -36,7 +37,7 @@ export class ServerManager {
     }
   }
 
-  async createServer(info: ServerCreationInfo) {
+  async createServer(info: ServerCreationInfo, ownerUserUUID: string) {
     const generatedInfo = this.dbManager.registerServer(info);
     const softwareInfo = loaders[info.software];
 
@@ -130,7 +131,14 @@ export class ServerManager {
         "eula=true",
       );
 
+      const owner = this.dbManager.getUser(ownerUserUUID);
+
       generatedInfo.settings.launchOptions.push("nogui");
+
+      if (owner.permissionLevel < PermissionLevel.Admin) {
+        generatedInfo.settings.userWhitelist.push(ownerUserUUID);
+      }
+
       this.states.set(generatedInfo.uuid, ServerStates.Stopped);
       this.listeners.set(generatedInfo.uuid, new Set());
 

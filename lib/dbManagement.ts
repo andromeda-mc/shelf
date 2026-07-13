@@ -92,6 +92,10 @@ export class DatabaseManagement {
     return uuid;
   }
 
+  getUser(user: string) {
+    return this.globalDB.users[user];
+  }
+
   userExists(uuid: string): boolean {
     return uuid in this.globalDB.users;
   }

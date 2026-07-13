@@ -4,7 +4,7 @@ import { MaybePromise } from "../utils/type.ts";
 import type { MessageData } from "./httpWsServer.ts";
 import * as v from "@valibot/valibot";
 
-type GenericSchema = v.ObjectSchema<any, undefined>;
+type GenericSchema = v.BaseSchema<any, any, any>;
 type BaseSchema = GenericSchema | undefined;
 
 // public allows unauthorized users
