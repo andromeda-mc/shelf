@@ -1,3 +1,4 @@
+import { ofetch } from "ofetch";
 import type { MaybePromise } from "./utils/type.ts";
 
 interface MultiMCVersion {
@@ -54,12 +55,12 @@ class MultiMCSoftwareData implements Loader {
     this.downloadUrl = downloadUrl;
     this.installArgs = installArgs;
 
-    fetch("https://meta.multimc.org/v1/" + this.uid).then((resp) =>
-      resp.json().then((json) => {
-        this.metadata = json;
-        this.produceVersionLists();
-      }),
-    );
+    ofetch<MultiMCMetadata>("https://meta.multimc.org/v1/" + this.uid, {
+      responseType: "json",
+    }).then((json) => {
+      this.metadata = json;
+      this.produceVersionLists();
+    });
   }
 
   private produceVersionLists() {
@@ -143,13 +144,15 @@ class VanillaSoftwareData implements Loader {
   customTerminate = stopTerminate;
 
   constructor() {
-    fetch("https://launchermeta.mojang.com/mc/game/version_manifest.json").then(
-      (resp) =>
-        resp.json().then((json) => {
-          this.versionManifest = json;
-          this.produceVersionLists();
-        }),
-    );
+    ofetch<VanillaManifest>(
+      "https://launchermeta.mojang.com/mc/game/version_manifest.json",
+      {
+        responseType: "json",
+      },
+    ).then((json) => {
+      this.versionManifest = json;
+      this.produceVersionLists();
+    });
   }
 
   private produceVersionLists() {
@@ -163,15 +166,13 @@ class VanillaSoftwareData implements Loader {
     this.recommended[this.versionManifest.latest.snapshot] = "-";
   }
 
-  async getVersionMetadata(mcVersion: string): Promise<VanillaVersionMetadata> {
+  async getVersionMetadata(mcVersion: string) {
     if (!this.versionManifest) throw new Error("No metadata available");
 
-    const packageResponse = await fetch(
+    return await ofetch<VanillaVersionMetadata>(
       this.versionManifest.versions.find((v) => v.id === mcVersion)!.url,
-      { cache: "force-cache" },
+      { cache: "force-cache", responseType: "json" },
     );
-
-    return await packageResponse.json();
   }
 
   async produceDownloadUrl(mcVersion: string): Promise<string> {
@@ -236,12 +237,10 @@ class FabricSoftwareData implements Loader {
     this.installArgs = installArgs;
     this.downloadUrl = downloadUrl;
 
-    fetch(metaUrl).then((resp) =>
-      resp.json().then((json) => {
-        this.manifest = json;
-        this.produceVersionLists();
-      }),
-    );
+    ofetch<FabricManifest>(metaUrl, { responseType: "json" }).then((json) => {
+      this.manifest = json;
+      this.produceVersionLists();
+    });
   }
 
   private produceVersionLists() {
@@ -293,32 +292,34 @@ class PaperSoftwareData implements Loader {
   constructor(project: string) {
     this.project = project;
 
-    fetch("https://fill.papermc.io/v3/projects/" + project).then(
-      async (resp) => {
-        const json = await resp.json();
-        this.manifest = json;
-        this.produceVersionLists();
+    ofetch<PaperProjectMetadata>(
+      "https://fill.papermc.io/v3/projects/" + project,
+      {
+        responseType: "json",
       },
-    );
+    ).then((json) => {
+      this.manifest = json;
+      this.produceVersionLists();
+    });
   }
 
   private async produceVersionLists() {
     if (!this.manifest) throw new Error("No metadata available");
     this.mcVersions = Object.values(this.manifest.versions).flat();
 
-    const response = await fetch(
+    const json = await ofetch(
       `https://fill.papermc.io/v3/projects/${this.project}/versions/${this.mcVersions[0]}/builds/latest`,
+      { responseType: "json" },
     );
-    const json = await response.json();
     this.recommended[this.mcVersions[0]] = json.id.toString();
   }
 
   async getLoaderVersionsForMC(mcVersion: string): Promise<string[]> {
-    const response = await fetch(
+    const json = await ofetch<PaperBuildMetadata>(
       `https://fill.papermc.io/v3/projects/${this.project}/versions/` +
         mcVersion,
+      { responseType: "json" },
     );
-    const json: PaperBuildMetadata = await response.json();
 
     return json.builds.map((b) => b.toString());
   }
@@ -327,10 +328,10 @@ class PaperSoftwareData implements Loader {
     mcVersion: string,
     loaderVersion: string,
   ): Promise<string> {
-    const response = await fetch(
+    const buildMetadata = await ofetch(
       `https://fill.papermc.io/v3/projects/${this.project}/versions/${mcVersion}/builds/${loaderVersion}`,
+      { responseType: "json" },
     );
-    const buildMetadata = await response.json();
 
     if (!buildMetadata.downloads["server:default"])
       throw new Error("No download url found");

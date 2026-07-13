@@ -9,6 +9,7 @@ import {
   ServerSettings,
 } from "./static/mcServerManager.ts";
 import { getLogger } from "@logtape/logtape";
+import { ofetch } from "ofetch";
 
 const installerTempPath = "/tmp/andromeda-stall2-installer.jar";
 
@@ -54,13 +55,12 @@ export class ServerManager {
         info.software_version,
       );
       this.logger.trace("Downloading {downloadUrl}", { downloadUrl });
-      const response = await fetch(downloadUrl);
-      const data = await response.bytes();
+      const data = await ofetch(downloadUrl, { responseType: "stream" });
 
       let launchScript: string | undefined;
 
       if (softwareInfo.wantsToBeInstalled) {
-        Deno.writeFileSync(installerTempPath, data);
+        await Deno.writeFile(installerTempPath, data);
 
         const args = [
           "-jar",
@@ -108,7 +108,7 @@ export class ServerManager {
 
         Deno.removeSync(installerTempPath);
       } else {
-        Deno.writeFileSync(
+        await Deno.writeFile(
           join(generatedInfo.instancePath, "server.jar"),
           data,
         );
