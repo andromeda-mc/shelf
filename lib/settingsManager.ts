@@ -4,33 +4,51 @@ import { basename, join, relative } from "@std/path";
 import { type ServerManager } from "./mcServerManager.ts";
 import { ServerStates } from "./static/mcServerManager.ts";
 import { getUUID } from "./minecraftApi.ts";
-import { convToMojDate, parseMojDate } from "./utils/date.ts";
+import { convToMojDate, mojDatePattern, parseMojDate } from "./utils/date.ts";
 import { getLogger } from "@logtape/logtape";
+import * as v from "@valibot/valibot";
 
 type PropertyTypes = string | number | boolean | null;
 type Properties = Record<string, PropertyTypes>;
 
-interface Whitelist {
-  uuid: string;
-  name: string;
-}
+const WhitelistEntrySchema = v.object({
+  uuid: v.pipe(v.string(), v.uuid()),
+  name: v.pipe(v.string(), v.nonEmpty()),
+});
 
-interface Bans extends Whitelist {
-  created: string;
-  source: string;
-  expires: "forever";
-  reason?: string;
-}
+const WhitelistSchema = v.array(WhitelistEntrySchema);
 
-interface NormalBans extends Omit<Bans, "created"> {
+type Whitelist = v.InferOutput<typeof WhitelistSchema>;
+
+const BansSchema = v.array(
+  v.intersect([
+    WhitelistEntrySchema,
+    v.object({
+      created: v.pipe(v.string(), v.regex(mojDatePattern)),
+      source: v.pipe(v.string(), v.nonEmpty()),
+      expires: v.literal("forever"),
+      reason: v.optional(v.string()),
+    }),
+  ]),
+);
+
+type Bans = v.InferOutput<typeof BansSchema>;
+
+interface NormalBans extends Omit<Bans[], "created"> {
   created: Date;
 }
 
-interface OpSettings {
-  level: number;
-  bypassesPlayerLimit: boolean;
-}
-type Ops = Whitelist & OpSettings;
+const OpsSchema = v.array(
+  v.intersect([
+    WhitelistEntrySchema,
+    v.object({
+      level: v.pipe(v.number(), v.minValue(0), v.maxValue(4)),
+      bypassesPlayerLimit: v.boolean(),
+    }),
+  ]),
+);
+
+type Ops = v.InferOutput<typeof OpsSchema>;
 
 const whitelistFile = "whitelist.json";
 const opsFile = "ops.json";
@@ -59,9 +77,9 @@ export class SettingsManager {
   serverManager;
   watcher;
 
-  private _whitelists = new Map<string, Whitelist[]>();
-  private _ops = new Map<string, Ops[]>();
-  private _bans = new Map<string, Bans[]>();
+  private _whitelists = new Map<string, Whitelist>();
+  private _ops = new Map<string, Ops>();
+  private _bans = new Map<string, Bans>();
   private _properties = new Map<string, Properties>();
 
   closed;
@@ -194,15 +212,20 @@ export class SettingsManager {
 
     try {
       const content = Deno.readTextFileSync(whitelistPath);
-      const whitelist: Whitelist[] = JSON.parse(content);
+      const json = JSON.parse(content);
+      const whitelist = v.parse(WhitelistSchema, json);
       this._whitelists.set(serverUUID, whitelist);
     } catch (err) {
       if (err instanceof Deno.errors.NotFound) {
         // NotFound errors are not critical here
-      } else if (err instanceof Error) {
-        this.logger.error("Invalid Whitelist read", err);
-      } else {
+      } else if (err instanceof v.ValiError) {
         this.logger.error("Invalid Whitelist read");
+      } else if (err instanceof Error) {
+        this.logger.error("Error occured while reading Whitelist: {err}", {
+          err,
+        });
+      } else {
+        this.logger.error("Error occured while reading Whitelist");
       }
       this._whitelists.set(serverUUID, []);
     }
@@ -210,7 +233,7 @@ export class SettingsManager {
 
   private saveWhitelist(serverUUID: string) {
     const whitelistPath = this.getPath(serverUUID, whitelistFile);
-    const whitelist = this.getProperties(serverUUID);
+    const whitelist = this.getWhitelist(serverUUID);
 
     const content = JSON.stringify(whitelist);
     return Deno.writeTextFileSync(whitelistPath, content);
@@ -228,6 +251,8 @@ export class SettingsManager {
 
       this.saveWhitelist(serverUUID);
     }
+
+    return entry;
   }
 
   removeFromWhitelist(serverUUID: string, playerName: string) {
@@ -259,16 +284,20 @@ export class SettingsManager {
 
     try {
       const content = Deno.readTextFileSync(opsPath);
-      const ops: Ops[] = JSON.parse(content);
+      const json = JSON.parse(content);
+      const ops = v.parse(OpsSchema, json);
       this._ops.set(serverUUID, ops);
     } catch (err) {
       if (err instanceof Deno.errors.NotFound) {
         // NotFound errors are not critical here
-      } else if (err instanceof Error) {
-        this.logger.error("Invalid Ops read", err);
-      } else {
+      } else if (err instanceof v.ValiError) {
         this.logger.error("Invalid Ops read");
+      } else if (err instanceof Error) {
+        this.logger.error("Error occured while reading Ops: {err}", { err });
+      } else {
+        this.logger.error("Error occured while reading Ops");
       }
+
       this._ops.set(serverUUID, []);
     }
   }
@@ -310,7 +339,7 @@ export class SettingsManager {
     }
   }
 
-  modifyOp(serverUUID: string, uuid: string, config: Partial<OpSettings>) {
+  modifyOp(serverUUID: string, uuid: string, config: Partial<Ops[0]>) {
     const ops = this.getOps(serverUUID);
     if (!ops) {
       return;
@@ -337,15 +366,18 @@ export class SettingsManager {
 
     try {
       const content = Deno.readTextFileSync(bansPath);
-      const bans: Bans[] = JSON.parse(content);
+      const json = JSON.parse(content);
+      const bans = v.parse(BansSchema, json);
       this._bans.set(serverUUID, bans);
     } catch (err) {
       if (err instanceof Deno.errors.NotFound) {
         // NotFound errors are not critical here
-      } else if (err instanceof Error) {
-        this.logger.error("Invalid Bans read", err);
-      } else {
+      } else if (err instanceof v.ValiError) {
         this.logger.error("Invalid Bans read");
+      } else if (err instanceof Error) {
+        this.logger.error("Error occured while reading Bans: {err}", { err });
+      } else {
+        this.logger.error("Error occured while reading Bans");
       }
       this._bans.set(serverUUID, []);
     }
@@ -420,10 +452,14 @@ export class SettingsManager {
       if (err instanceof Deno.errors.NotFound) {
         this._properties.delete(serverUUID);
         throw "not ready: server.properties";
-      } else if (err instanceof Error) {
-        this.logger.error("Invalid Properties read", err);
-      } else {
+      } else if (err instanceof v.ValiError) {
         this.logger.error("Invalid Properties read");
+      } else if (err instanceof Error) {
+        this.logger.error("Error occured while reading Properties: {err}", {
+          err,
+        });
+      } else {
+        this.logger.error("Error occured while reading Properties");
       }
       this._properties.delete(serverUUID);
     }

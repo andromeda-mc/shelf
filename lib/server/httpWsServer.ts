@@ -209,10 +209,13 @@ export class HttpServer {
         return entry.handler(options);
       } catch (err) {
         if (err instanceof Error) {
-          this.logger.error("HTTP Handling: Error in handler for {command}", {
-            err,
-            command,
-          });
+          this.logger.error(
+            "HTTP Handling: Error in handler for {command}: {err}",
+            {
+              err,
+              command,
+            },
+          );
         } else {
           this.logger.error("HTTP Handling: Error in handler for {command}", {
             command,
@@ -366,10 +369,13 @@ export class HttpServer {
         } else {
           error("failed: execution");
           if (err instanceof Error) {
-            this.logger.error("WS Handling: Error in handler for {command}", {
-              err,
-              command,
-            });
+            this.logger.error(
+              "WS Handling: Error in handler for {command}: {err}",
+              {
+                err,
+                command,
+              },
+            );
           } else {
             this.logger.error("WS Handling: Error in handler for {command}");
           }

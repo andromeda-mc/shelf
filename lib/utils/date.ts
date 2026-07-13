@@ -1,5 +1,7 @@
 import { format } from "@std/datetime";
 
+export const mojDatePattern = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \+\d{4}/;
+
 export function convToMojDate(date: Date): string {
   let string = format(date, "yyyy-MM-dd HH:mm:ss ");
 
