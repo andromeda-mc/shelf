@@ -135,13 +135,16 @@ if (import.meta.main) {
         server.sendAllWS({ data: "add-new-server", server: mcServer }),
       );
 
-      queueManager.scheduleTask({
-        title: `Creating server "${info.name}"`,
-        type: "Server creation",
-        description: `${info.software} ${info.software_version} for ${info.mc_version}`,
-        promise,
-        notifyOnFinish: true,
-      });
+      queueManager.scheduleTask(
+        {
+          title: `Creating server "${info.name}"`,
+          type: "Server creation",
+          description: `${info.software} ${info.software_version} for ${info.mc_version}`,
+          promise,
+          notifyOnFinish: true,
+        },
+        "create-server",
+      );
     },
     CreateServerSchema,
     Permissions.CreateServer,
@@ -154,12 +157,15 @@ if (import.meta.main) {
       const info = dbManager.getServer(uuid);
       const promise = options.wrapPromise(serverManager.startServer(uuid));
 
-      queueManager.scheduleTask({
-        title: `Starting server "${info.name}"`,
-        type: "Server starting",
-        promise,
-        notifyOnFinish: false,
-      });
+      queueManager.scheduleTask(
+        {
+          title: `Starting server "${info.name}"`,
+          type: "Server starting",
+          promise,
+          notifyOnFinish: false,
+        },
+        "start-server",
+      );
     },
     SimpleServerActionSchema,
     Permissions.StartServer,
@@ -174,12 +180,15 @@ if (import.meta.main) {
         serverManager.stopServer(uuid);
       });
 
-      queueManager.scheduleTask({
-        title: `Stopping server "${info.name}"`,
-        type: "Server stopping",
-        promise,
-        notifyOnFinish: false,
-      });
+      queueManager.scheduleTask(
+        {
+          title: `Stopping server "${info.name}"`,
+          type: "Server stopping",
+          promise,
+          notifyOnFinish: false,
+        },
+        "stop-server",
+      );
     },
     SimpleServerActionSchema,
     Permissions.StopServer,
@@ -195,12 +204,13 @@ if (import.meta.main) {
       });
       promise.then(() => server.sendAllWS({ data: "remove-server", uuid }));
 
-      queueManager.scheduleTask({
+      (queueManager.scheduleTask({
         title: `Deleting server "${info.name}"`,
         type: "Server deletion",
         promise,
         notifyOnFinish: true,
-      });
+      }),
+        "delete-server");
     },
     SimpleServerActionSchema,
     Permissions.DeleteServer,
@@ -214,7 +224,7 @@ if (import.meta.main) {
         servers: serverManager.listAllVisibleServers(options.userUUID),
       });
     },
-    v.object({}),
+    undefined,
   );
 
   handleManager.addWebSocketHandler(
@@ -238,6 +248,7 @@ if (import.meta.main) {
         throw "unknown: server";
       }
       serverManager.removeServerListener(uuid, options.socket);
+      options.respond({ data: "ok" });
     },
     SimpleServerActionSchema,
     Permissions.ReadConsole,
@@ -248,6 +259,7 @@ if (import.meta.main) {
     (options) => {
       const uuid = checkServerAccess(options);
       serverManager.write(uuid, options.data.content);
+      options.respond({ data: "ok" });
     },
     WriteSchema,
     Permissions.WriteConsole,
@@ -264,7 +276,7 @@ if (import.meta.main) {
 
       return options.respond({ data: "new-jwt-token", token });
     },
-    v.object({}),
+    undefined,
     PermissionLevel.User,
   );
 
@@ -272,6 +284,7 @@ if (import.meta.main) {
     "remove-notification",
     (options) => {
       queueManager.removeNotification(options.data.uuid);
+      options.respond({ data: "ok" });
     },
     SimpleServerActionSchema,
     Permissions.ManageNotifications,
@@ -345,13 +358,16 @@ if (import.meta.main) {
         options.respond({ data: "add-to-whitelist", uuid, entry }),
       );
 
-      queueManager.scheduleTask({
-        title: `Whitelisting "${player}"`,
-        subtitle: `Server "${info.name}"`,
-        type: "Whitelisting",
-        notifyOnFinish: false,
-        promise,
-      });
+      queueManager.scheduleTask(
+        {
+          title: `Whitelisting "${player}"`,
+          subtitle: `Server "${info.name}"`,
+          type: "Whitelisting",
+          notifyOnFinish: false,
+          promise,
+        },
+        "whitelist-player",
+      );
     },
     ServerPlayerActionSchema,
     Permissions.WhitelistPlayer,
@@ -362,6 +378,7 @@ if (import.meta.main) {
     (options) => {
       const uuid = checkServerAccess(options);
       settingsManager.removeFromWhitelist(uuid, options.data.player);
+      options.respond({ data: "ok" });
     },
     ServerPlayerActionSchema,
     Permissions.UnwhitelistPlayer,
@@ -408,17 +425,22 @@ if (import.meta.main) {
     server.sendAllWS({ data: "state-change", uuid, state });
   };
 
-  queueManager.onQueueAdded = (task) => {
+  queueManager.onQueueAdded = (task, responseTo) => {
     server.sendAllWS({
       data: "queue-new-task",
       task: omit(task, "promise", "onComplete", "onFailure"),
+      responseTo,
     });
   };
   queueManager.onQueueRemoved = (taskUUID) => {
     server.sendAllWS({ data: "queue-remove-task", taskUUID });
   };
-  queueManager.onNotificationAdded = (notification) => {
-    server.sendAllWS({ data: "queue-new-notification", notification });
+  queueManager.onNotificationAdded = (notification, responseTo) => {
+    server.sendAllWS({
+      data: "queue-new-notification",
+      notification,
+      responseTo,
+    });
   };
   queueManager.onNotificationRemoved = (notificationUUID) => {
     server.sendAllWS({ data: "queue-remove-notification", notificationUUID });

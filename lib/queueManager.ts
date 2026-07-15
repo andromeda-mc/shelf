@@ -40,14 +40,18 @@ export class QueueManager {
     return this._notifications;
   }
 
-  onQueueAdded: undefined | ((item: QueueItem<any>) => void);
+  onQueueAdded:
+    | undefined
+    | ((item: QueueItem<any>, responseTo?: string) => void);
   onQueueRemoved: undefined | ((item: string) => void);
-  onNotificationAdded: undefined | ((item: QueueNotification) => void);
+  onNotificationAdded:
+    | undefined
+    | ((item: QueueNotification, responseTo?: string) => void);
   onNotificationRemoved: undefined | ((item: string) => void);
 
   private logger = getLogger(["Shelf", "QueueManager"]);
 
-  scheduleTask(stubTask: StubQueueItem) {
+  scheduleTask(stubTask: StubQueueItem, responseTo?: string) {
     function deleteQueue(queue: QueueManager) {
       queue.onQueueRemoved?.(task.itemUUID);
       queue.entries.splice(queue.entries.indexOf(task), 1);
@@ -99,17 +103,17 @@ export class QueueManager {
 
     this.logger.info("Queded task {name}", { name: task.title });
     this.entries.push(task);
-    this.onQueueAdded?.(task);
+    this.onQueueAdded?.(task, responseTo);
   }
 
-  addNotification(stubNotifaction: StubQueueNotification) {
+  addNotification(stubNotifaction: StubQueueNotification, responseTo?: string) {
     const notification = stubNotifaction as QueueNotification;
     notification.date = new Date();
     notification.itemUUID = generateUUID();
 
     this.logger.info("Added notification {name}", { name: notification.title });
     this._notifications.push(notification);
-    this.onNotificationAdded?.(notification);
+    this.onNotificationAdded?.(notification, responseTo);
   }
 
   removeNotification(uuid: string): boolean {
