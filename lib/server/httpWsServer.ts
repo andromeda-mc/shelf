@@ -117,13 +117,9 @@ export class HttpServer {
     this.ac.abort();
   }
 
-  closeSocket(
-    socket: WebSocket,
-    code: number = 1000,
-    reason: string = "<no reason>",
-  ) {
+  closeSocket(socket: WebSocket, code: number = 1000, reason?: string) {
     // Send message just in case the client (like websocat) doesn't handle close properly
-    socket.send(`CLOSE [${code}] - ${reason} -`);
+    socket.send(`CLOSE [${code}] - ${reason ?? "<no reason>"} -`);
     socket.close(code, reason);
   }
 
