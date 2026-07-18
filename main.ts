@@ -10,7 +10,7 @@ import { HttpServer } from "./lib/server/httpWsServer.ts";
 import { HandlerManager } from "./lib/server/handlerManager.ts";
 import * as vars from "./lib/vars.ts";
 import { omit } from "./lib/utils/objects.ts";
-import { SettingsManager } from "./lib/settingsManager.ts";
+import { OpConfigSchema, SettingsManager } from "./lib/settingsManager.ts";
 import { getLogger } from "@logtape/logtape";
 import { configureLogger } from "./lib/logger.ts";
 
@@ -37,6 +37,14 @@ const ServerPlayerActionSchema = v.intersect([
   SimpleServerActionSchema,
   v.object({
     player: v.pipe(v.string(), v.nonEmpty()),
+  }),
+]);
+
+const ModifyOpSchema = v.intersect([
+  SimpleServerActionSchema,
+  v.object({
+    playerUUID: v.pipe(v.string(), v.uuid()),
+    changes: v.partial(OpConfigSchema),
   }),
 ]);
 
@@ -204,13 +212,12 @@ if (import.meta.main) {
       });
       promise.then(() => server.sendAllWS({ data: "remove-server", uuid }));
 
-      (queueManager.scheduleTask({
+      queueManager.scheduleTask({
         title: `Deleting server "${info.name}"`,
         type: "Server deletion",
         promise,
         notifyOnFinish: true,
-      }),
-        "delete-server");
+      });
     },
     SimpleServerActionSchema,
     Permissions.DeleteServer,
@@ -348,26 +355,14 @@ if (import.meta.main) {
 
   handleManager.addWebSocketHandler(
     "whitelist-player",
-    (options) => {
+    async (options) => {
       const uuid = checkServerAccess(options);
-      const { player } = options.data;
-      const info = dbManager.getServer(uuid);
-      const promise = settingsManager.addToWhitelist(uuid, player);
-
-      promise.then((entry) =>
-        options.respond({ data: "add-to-whitelist", uuid, entry }),
+      const entry = await settingsManager.addToWhitelist(
+        uuid,
+        options.data.player,
       );
 
-      queueManager.scheduleTask(
-        {
-          title: `Whitelisting "${player}"`,
-          subtitle: `Server "${info.name}"`,
-          type: "Whitelisting",
-          notifyOnFinish: false,
-          promise,
-        },
-        "whitelist-player",
-      );
+      options.respond({ data: "add-to-whitelist", uuid, entry });
     },
     ServerPlayerActionSchema,
     Permissions.WhitelistPlayer,
@@ -382,6 +377,67 @@ if (import.meta.main) {
     },
     ServerPlayerActionSchema,
     Permissions.UnwhitelistPlayer,
+  );
+
+  handleManager.addWebSocketHandler(
+    "op-player",
+    async (options) => {
+      const uuid = checkServerAccess(options);
+      const entry = await settingsManager.addToOps(uuid, options.data.player);
+
+      options.respond({ data: "add-to-ops", uuid, entry });
+    },
+    ServerPlayerActionSchema,
+    Permissions.CreateOp,
+  );
+
+  handleManager.addWebSocketHandler(
+    "deop-player",
+    (options) => {
+      const uuid = checkServerAccess(options);
+      settingsManager.removeFromOps(uuid, options.data.player);
+      options.respond({ data: "ok" });
+    },
+    ServerPlayerActionSchema,
+    Permissions.RemoveOp,
+  );
+
+  handleManager.addWebSocketHandler(
+    "modify-op",
+    (options) => {
+      const uuid = checkServerAccess(options);
+      settingsManager.modifyOp(
+        uuid,
+        options.data.playerUUID,
+        options.data.changes,
+      );
+      options.respond({ data: "ok" });
+    },
+    ModifyOpSchema,
+    Permissions.ModifyOp,
+  );
+
+  handleManager.addWebSocketHandler(
+    "ban-player",
+    async (options) => {
+      const uuid = checkServerAccess(options);
+      const entry = await settingsManager.banPlayer(uuid, options.data.player);
+
+      options.respond({ data: "add-to-bans", uuid, entry });
+    },
+    ServerPlayerActionSchema,
+    Permissions.CreateBan,
+  );
+
+  handleManager.addWebSocketHandler(
+    "unban-player",
+    (options) => {
+      const uuid = checkServerAccess(options);
+      settingsManager.unbanPlayer(uuid, options.data.player);
+      options.respond({ data: "ok" });
+    },
+    ServerPlayerActionSchema,
+    Permissions.RemoveBan,
   );
 
   handleManager.addHttpPostHandler("icon", (options) => {
@@ -428,7 +484,13 @@ if (import.meta.main) {
   queueManager.onQueueAdded = (task, responseTo) => {
     server.sendAllWS({
       data: "queue-new-task",
-      task: omit(task, "promise", "onComplete", "onFailure"),
+      task: omit(
+        task,
+        "promise",
+        "onComplete",
+        "onFailure",
+        "customErrorTitle",
+      ),
       responseTo,
     });
   };

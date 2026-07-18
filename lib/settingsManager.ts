@@ -38,17 +38,14 @@ interface NormalBans extends Omit<Bans[], "created"> {
   created: Date;
 }
 
-const OpsSchema = v.array(
-  v.intersect([
-    WhitelistEntrySchema,
-    v.object({
-      level: v.pipe(v.number(), v.minValue(0), v.maxValue(4)),
-      bypassesPlayerLimit: v.boolean(),
-    }),
-  ]),
-);
+export const OpConfigSchema = v.object({
+  level: v.pipe(v.number(), v.minValue(0), v.maxValue(4)),
+  bypassesPlayerLimit: v.boolean(),
+});
+const OpsSchema = v.array(v.intersect([WhitelistEntrySchema, OpConfigSchema]));
 
 type Ops = v.InferOutput<typeof OpsSchema>;
+type OpConfig = v.InferOutput<typeof OpConfigSchema>;
 
 const whitelistFile = "whitelist.json";
 const opsFile = "ops.json";
@@ -322,6 +319,8 @@ export class SettingsManager {
 
       this.saveOps(serverUUID);
     }
+
+    return entry;
   }
 
   removeFromOps(serverUUID: string, playerName: string) {
@@ -339,7 +338,7 @@ export class SettingsManager {
     }
   }
 
-  modifyOp(serverUUID: string, uuid: string, config: Partial<Ops[0]>) {
+  modifyOp(serverUUID: string, uuid: string, config: Partial<OpConfig>) {
     const ops = this.getOps(serverUUID);
     if (!ops) {
       return;
@@ -353,6 +352,8 @@ export class SettingsManager {
     ops[idx] = { ...ops[idx], ...config };
 
     this.saveOps(serverUUID);
+
+    return ops[idx];
   }
 
   // Bans / banned-players.json
@@ -411,6 +412,8 @@ export class SettingsManager {
 
       this.saveBans(serverUUID);
     }
+
+    return entry;
   }
 
   unbanPlayer(serverUUID: string, playerName: string) {
